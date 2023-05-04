@@ -3,7 +3,7 @@ from datetime import timedelta
 from app.models import database_proxy
 from app.models.incident import Incident as IncidentModel
 from app.models.unit import Unit as UnitModel
-from app.routers import incidents
+from app.routers import incidents, root
 from app.services.incidentresolver import IncidentResolver
 from app.services.updater import IncidentUpdater
 from app.utils.info import get_lcwc_version
@@ -28,6 +28,8 @@ app = FastAPI(
         'email': 'nate.shoffner@Gmail.com'
     }
 )
+
+app.include_router(root.router, include_in_schema=False)
 app.include_router(incidents.router, prefix='/api/v1')
 
 logger = get_custom_logger('lcwc-service')
