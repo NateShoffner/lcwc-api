@@ -8,11 +8,15 @@ from app.services.incidentresolver import IncidentResolver
 from app.services.updater import IncidentUpdater
 from app.utils.info import get_lcwc_version
 from app.utils.logging import get_custom_logger
+from dotenv import dotenv_values
 from fastapi import FastAPI
 from peewee import *
 
+config = dotenv_values('.env')
+
 database = MySQLDatabase('lcwc_api', user='lcwc', password='lcwc',
                          host='lcwc_db', port=3306)
+
 database_proxy.initialize(database)
 database.connect()
 database.create_tables([IncidentModel, UnitModel])
@@ -25,7 +29,7 @@ app = FastAPI(
     contact={
         'name': 'Nate Shoffner',
         'url': 'https://nateshoffner.com',
-        'email': 'nate.shoffner@Gmail.com'
+        'email': 'nate.shoffner@gmail.com'
     }
 )
 
@@ -38,8 +42,10 @@ logger.info('Database: %s', database.database)
 
 logger.info('lcwc version: %s', get_lcwc_version())
 
-updater = IncidentUpdater(app, database, timedelta(seconds=10))
-pruner = IncidentResolver(app, timedelta(minutes=10), timedelta(hours=12))
+updater = IncidentUpdater(app, database, timedelta(seconds=int(config['INCIDENT_UPDATE_INTERVAL'])))
+
+if config['AUTO_RESOLVE_INCIDENTS']:
+    pruner = IncidentResolver(app, timedelta(minutes=int(config['AUTO_RESOLVE_INCIDENTS_INTERVAL'])), timedelta(minutes=int(config['AUTO_RESOLVE_INCIDENTS_AGE'])))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8081)
+    uvicorn.run(app, host=config['HOSTNAME'], port=int(config['PORT']))
