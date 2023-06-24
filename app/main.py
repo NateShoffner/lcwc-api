@@ -1,3 +1,4 @@
+import toml
 import uvicorn
 from datetime import timedelta
 from app.models import database_proxy
@@ -12,7 +13,9 @@ from dotenv import dotenv_values
 from fastapi import FastAPI
 from peewee import *
 
-config = dotenv_values('.env')
+env = dotenv_values('.env')
+config = toml.load('config/config.toml')
+
 
 database = MySQLDatabase('lcwc_api', user='lcwc', password='lcwc',
                          host='lcwc_db', port=3306)
@@ -42,10 +45,13 @@ logger.info('Database: %s', database.database)
 
 logger.info('lcwc version: %s', get_lcwc_version())
 
-updater = IncidentUpdater(app, database, timedelta(seconds=int(config['INCIDENT_UPDATE_INTERVAL'])))
+lcwc_config = config['lcwc']
 
-if config['AUTO_RESOLVE_INCIDENTS']:
-    pruner = IncidentResolver(app, timedelta(minutes=int(config['AUTO_RESOLVE_INCIDENTS_INTERVAL'])), timedelta(minutes=int(config['AUTO_RESOLVE_INCIDENTS_AGE'])))
+updater = IncidentUpdater(app, database, timedelta(seconds=int(lcwc_config['update_interval'])))
+
+resolver_config = config['resolver']
+if resolver_config['enabled']:
+    pruner = IncidentResolver(app, timedelta(minutes=int(resolver_config['interval'])), timedelta(minutes=int(resolver_config['threshold'])))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=config['HOSTNAME'], port=int(config['PORT']))
+    uvicorn.run(app, host=env['HOSTNAME'], port=int(env['PORT']))

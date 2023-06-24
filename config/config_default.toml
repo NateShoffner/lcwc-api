@@ -1,0 +1,7 @@
+[lcwc]
+update_interval = 10 # seconds
+
+[resolver]
+enabled = true
+interval = 10 # minutes
+threshold = 720 # minutes
