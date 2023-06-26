@@ -1,4 +1,5 @@
 
+import logging
 import aiohttp
 import time
 import datetime
@@ -6,14 +7,12 @@ import fastapi
 import peewee
 from fastapi_utils.tasks import repeat_every
 from lcwc.category import IncidentCategory
-from lcwc.feedclient import IncidentFeedClient
-from app.utils.logging import get_custom_logger
+from lcwc.arcgis import Client, Incident
+from app.utils.info import get_lcwc_version
 from app.models.incident import Incident
 
 """ Updates the list of active incidents from the LCWC feed """
 class IncidentUpdater:
-
-    logger = get_custom_logger('lcwc-updater')
 
     def __init__(self, app: fastapi.FastAPI, db: peewee.Database, update_interval: datetime.timedelta):
         """ Initializes the incident updater
@@ -26,9 +25,10 @@ class IncidentUpdater:
 
         self.app = app
         self.db = db
-        self.incident_client = IncidentFeedClient()
+        self.incident_client = Client()
         self.active_incidents = {}
         self.last_update = None
+        self.logger = logging.getLogger(__name__)
 
         @app.on_event("startup")
         @repeat_every(seconds=update_interval.total_seconds())
@@ -47,10 +47,9 @@ class IncidentUpdater:
         async with aiohttp.ClientSession() as session:    
             fetch_start = time.perf_counter()
             try:
-                result = await self.incident_client.fetch(session)
+                live_incidents = await self.incident_client.get_incidents(session)
                 fetch_end = time.perf_counter()
-                live_incidents = self.incident_client.parse(result)
-                self.logger.info(f'Found {len(live_incidents)} live incidents in {fetch_end - fetch_start:0.2f} seconds')
+                self.logger.info(f'Found {len(live_incidents)} live incidents in {fetch_end - fetch_start:0.2f} seconds via {self.incident_client.__class__} in lcwc v{get_lcwc_version()}')
             except Exception as e:
                 self.logger.error(f'Error fetching incidents: {e}')
                 return

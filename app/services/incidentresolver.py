@@ -1,13 +1,11 @@
 import datetime
+import logging
 from fastapi import FastAPI
 from fastapi_utils.tasks import repeat_every
 from app.models.incident import Incident
-from app.utils.logging import get_custom_logger
 
 """ Prunes unresolved incidents after an extended period of time from the database """
 class IncidentResolver:
-
-    logger = get_custom_logger('lcwc-resolver')
 
     def __init__(self, app: FastAPI, prune_interval: datetime.timedelta, resolution_threshold: datetime.timedelta):
         """ Initializes the incident resolver
@@ -20,6 +18,7 @@ class IncidentResolver:
 
         self.app = app
         self.resolution_threshold = resolution_threshold
+        self.logger = logging.getLogger(__name__)
 
         @app.on_event("startup")
         @repeat_every(seconds=prune_interval.total_seconds())

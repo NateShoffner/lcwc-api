@@ -1,17 +1,17 @@
 import datetime
+import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from playhouse.shortcuts import model_to_dict
 from peewee import fn
 from pydantic import BaseModel
 from app.utils.info import get_lcwc_version
-from app.utils.logging import get_custom_logger
 from app.models.incident import Incident
 from app.models.unit import Unit
 
 router = APIRouter()
 
-logger = get_custom_logger('lcwc-api')
+logger = logging.getLogger(__name__)
 
 class ResponseModel(BaseModel):
     message: str
@@ -86,19 +86,18 @@ async def incident(start: datetime.date, end: datetime.date):
 
     return ResponseModel(status=True, message='Success', data=data)
 
-@router.get("/incident/id/{guid}")
-async def incident(guid: str):
+@router.get("/incident/id/{id}")
+async def incident(id: int):
     try:
-        incident = Incident.get_by_id(guid)
+        incident = Incident.get_by_id(int)
     except Incident.DoesNotExist:
-        raise HTTPException(status_code=404, detail=f"Incident with {guid=} does not exist.")
+        raise HTTPException(status_code=404, detail=f"Incident with {id=} does not exist.")
     return ResponseModel(status=True, message='Success', data=model_to_dict(incident))
 
-@router.get("/incidents/related/{guid}")
-async def incident(guid: str):
-    #SELECT * FROM incidents WHERE intersection = (SELECT intersection FROM incidents WHERE guid = '862dafa5-9714-4af1-91d9-bf70f066fe91')
+@router.get("/incidents/related/{id}")
+async def incident(id: int):
 
-    incidents = Incident.select().where(Incident.intersection == (Incident.select(Incident.intersection).where(Incident.guid == guid)))
+    incidents = Incident.select().where(Incident.intersection == (Incident.select(Incident.intersection).where(Incident.id == id)))
 
     incidents.order_by(Incident.dispatched_at.desc())
 

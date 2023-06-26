@@ -1,3 +1,5 @@
+import logging
+import os
 import toml
 import uvicorn
 from datetime import timedelta
@@ -8,50 +10,78 @@ from app.routers import incidents, root
 from app.services.incidentresolver import IncidentResolver
 from app.services.updater import IncidentUpdater
 from app.utils.info import get_lcwc_version
-from app.utils.logging import get_custom_logger
 from dotenv import dotenv_values
 from fastapi import FastAPI
 from peewee import *
 
-env = dotenv_values('.env')
-config = toml.load('config/config.toml')
+env = dotenv_values(".env")
+config = toml.load("config/config.toml")
 
+LOG_DIRECTORY = "logs"
 
-database = MySQLDatabase('lcwc_api', user='lcwc', password='lcwc',
-                         host='lcwc_db', port=3306)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+
+if not os.path.exists(LOG_DIRECTORY):
+    os.makedirs(LOG_DIRECTORY)
+
+file_logger = logging.handlers.TimedRotatingFileHandler(
+    os.path.join(LOG_DIRECTORY, "server.log"), when="midnight")
+file_logger.setFormatter(logging.Formatter("%(asctime)s %(levelname)-2s %(message)s"))
+file_logger.setLevel(logging.DEBUG)
+root_logger.addHandler(file_logger)
+
+console_logger = logging.StreamHandler()
+console_logger.setLevel(logging.INFO)
+console_logger.setFormatter(
+    logging.Formatter(
+        "%(asctime)s %(levelname)-2s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+)
+root_logger.addHandler(console_logger)
+
+root_logger.info("Connecting to database...")
+database = MySQLDatabase(
+    "lcwc", user=env['DB_USER'], password=env['DB_PASSWORD'], host=env['DB_HOST'], port=int(env['DB_PORT'])
+)
 
 database_proxy.initialize(database)
 database.connect()
 database.create_tables([IncidentModel, UnitModel])
 
 app = FastAPI(
-    description= 'LCWC API',
-    title='LCWC API',
-    version='0.0.1',
-    docs_url='/api/v1/docs',
+    description="LCWC API",
+    title="LCWC API",
+    version="0.0.1",
+    docs_url="/api/v1/docs",
     contact={
-        'name': 'Nate Shoffner',
-        'url': 'https://nateshoffner.com',
-        'email': 'nate.shoffner@gmail.com'
-    }
+        "name": "Nate Shoffner",
+        "url": "https://nateshoffner.com",
+        "email": "nate.shoffner@gmail.com",
+    },
 )
 
 app.include_router(root.router, include_in_schema=False)
-app.include_router(incidents.router, prefix='/api/v1')
+app.include_router(incidents.router, prefix="/api/v1")
 
-logger = get_custom_logger('lcwc-service')
-logger.info('Starting LCWC API...')
-logger.info('Database: %s', database.database)
+root_logger.info("Starting LCWC API...")
+root_logger.info("Database: %s", database.database)
 
-logger.info('lcwc version: %s', get_lcwc_version())
+root_logger.info("lcwc version: %s", get_lcwc_version())
 
-lcwc_config = config['lcwc']
+lcwc_config = config["lcwc"]
 
-updater = IncidentUpdater(app, database, timedelta(seconds=int(lcwc_config['update_interval'])))
+updater = IncidentUpdater(
+    app, database, timedelta(seconds=int(lcwc_config["update_interval"]))
+)
 
-resolver_config = config['resolver']
-if resolver_config['enabled']:
-    pruner = IncidentResolver(app, timedelta(minutes=int(resolver_config['interval'])), timedelta(minutes=int(resolver_config['threshold'])))
+resolver_config = config["resolver"]
+if resolver_config["enabled"]:
+    pruner = IncidentResolver(
+        app,
+        timedelta(minutes=int(resolver_config["interval"])),
+        timedelta(minutes=int(resolver_config["threshold"])),
+    )
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=env['HOSTNAME'], port=int(env['PORT']))
+    uvicorn.run(app, host=env["HOSTNAME"], port=int(env["PORT"]))
