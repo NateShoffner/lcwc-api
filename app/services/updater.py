@@ -6,6 +6,7 @@ import fastapi
 import peewee
 from fastapi_utils.tasks import repeat_every
 from lcwc.category import IncidentCategory
+from app.services.geocoder import Geocoder
 from lcwc.arcgis import Client, Incident
 from app.utils.info import get_lcwc_dist, get_lcwc_version
 from app.models.incident import Incident
@@ -19,6 +20,7 @@ class IncidentUpdater:
         app: fastapi.FastAPI,
         db: peewee.Database,
         update_interval: datetime.timedelta,
+        geocoder: Geocoder
     ):
         """Initializes the incident updater
 
@@ -30,6 +32,7 @@ class IncidentUpdater:
 
         self.app = app
         self.db = db
+        self.geocoder = geocoder
         self.incident_client = Client()
         self.active_incidents = {}
         self.last_update = None

@@ -7,6 +7,7 @@ from app.models import database_proxy
 from app.models.incident import Incident as IncidentModel
 from app.models.unit import Unit as UnitModel
 from app.routers import incidents, root
+from app.services.geocoder import Geocoder
 from app.services.incidentresolver import IncidentResolver
 from app.services.updater import IncidentUpdater
 from app.utils.info import get_lcwc_version
@@ -77,8 +78,10 @@ root_logger.info("lcwc version: %s", get_lcwc_version())
 
 lcwc_config = config["lcwc"]
 
+geocoder = Geocoder(env['GEOCODING_API_KEY'])
+
 updater = IncidentUpdater(
-    app, database, timedelta(seconds=int(lcwc_config["update_interval"]))
+    app, database, timedelta(seconds=int(lcwc_config["update_interval"])), geocoder
 )
 
 resolver_config = config["resolver"]

@@ -7,3 +7,4 @@ pymysql==1.0.3
 python-dotenv==0.17.1
 uvicorn==0.18.3
 toml
+urllib3
