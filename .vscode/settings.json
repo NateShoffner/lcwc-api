@@ -1,0 +1,17 @@
+{
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default"
+            },
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 32001,
+            "driver": "MySQL",
+            "name": "LCWC",
+            "database": "lcwc_api",
+            "username": "lcwc",
+            "password": "lcwc"
+        }
+    ]
+}
