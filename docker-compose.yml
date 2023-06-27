@@ -12,6 +12,10 @@ services:
       - MYSQL_PASSWORD=lcwc
       - MYSQL_DATABASE=lcwc_api
       - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 5
     restart: always
     volumes:
       - ./db:/var/lib/mysql
@@ -24,10 +28,9 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 80 --reload
     ports:
       - 8080:80
-    links:
-      - db
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: always
     volumes:
       - .:/app
