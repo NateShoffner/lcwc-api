@@ -26,7 +26,8 @@ if not os.path.exists(LOG_DIRECTORY):
     os.makedirs(LOG_DIRECTORY)
 
 file_logger = logging.handlers.TimedRotatingFileHandler(
-    os.path.join(LOG_DIRECTORY, "server.log"), when="midnight")
+    os.path.join(LOG_DIRECTORY, "server.log"), when="midnight"
+)
 file_logger.setFormatter(logging.Formatter("%(asctime)s %(levelname)-2s %(message)s"))
 file_logger.setLevel(logging.DEBUG)
 root_logger.addHandler(file_logger)
@@ -41,8 +42,13 @@ console_logger.setFormatter(
 root_logger.addHandler(console_logger)
 
 root_logger.info("Connecting to database...")
+
 database = MySQLDatabase(
-    "lcwc", user=env['DB_USER'], password=env['DB_PASSWORD'], host=env['DB_HOST'], port=int(env['DB_PORT'])
+    env["DB_NAME"],
+    user=env["DB_USER"],
+    password=env["DB_PASSWORD"],
+    host=env["DB_HOST"],
+    port=int(env["DB_PORT"]),
 )
 
 database_proxy.initialize(database)
