@@ -1,9 +1,16 @@
 import pkg_resources
 
-lcwc_version = None
+lcwc_dist = None
+
 
 def get_lcwc_version():
-    global lcwc_version
-    if not lcwc_version:
-        lcwc_version = pkg_resources.get_distribution("lcwc").version
-    return lcwc_version
+    if not lcwc_dist:
+        get_lcwc_dist()
+    return lcwc_dist.version
+
+
+def get_lcwc_dist():
+    global lcwc_dist
+    if not lcwc_dist:
+        lcwc_dist = pkg_resources.get_distribution("lcwc")
+    return lcwc_dist
