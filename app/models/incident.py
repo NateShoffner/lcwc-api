@@ -15,6 +15,7 @@ class Incident(BaseModel):
     agency = CharField()
 
     # coordinates
+    # TODO Use Point data type
     latitude = DecimalField(null=True)
     longitude = DecimalField(null=True)
 
