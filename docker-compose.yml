@@ -2,6 +2,19 @@ version: "3"
 
 services:
 
+  redis:
+    container_name: lcwc_redis
+    image: redis
+    restart: always
+    ports:
+      - 6379:6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 5s
+      retries: 5
+    networks:
+      - lcwc-network
+
   db:
     container_name: lcwc_db
     image: mysql:5.7
@@ -30,6 +43,8 @@ services:
       - 8080:80
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: always
     volumes:
