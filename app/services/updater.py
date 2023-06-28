@@ -20,7 +20,8 @@ class IncidentUpdater:
         app: fastapi.FastAPI,
         db: peewee.Database,
         update_interval: datetime.timedelta,
-        geocoder: IncidentGeocoder
+        geocoder: IncidentGeocoder,
+        use_geocoder: bool = False,
     ):
         """Initializes the incident updater
 
@@ -114,7 +115,15 @@ class IncidentUpdater:
         self.logger.info(
             f"New: {len(new_incidents)} | Known: {len(known_incidents)} | Resolved: {len(resolved_incidents)}"
         )
-
+        
+        if self.use_geocoder:
+            self.logger.info("Geocoding new incidents...")
+            for incident in new_incidents:
+                coords = self.geocoder.get_coordinates(incident)
+                if coords is not None:
+                    # TODO set this properly
+                    incident._coordinates = coords
+        
         with self.db.atomic():
             for incident in live_incidents:
                 try:
