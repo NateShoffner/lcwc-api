@@ -9,6 +9,7 @@ class Unit(BaseModel):
     name = CharField()
     added_at = DateTimeField(default=datetime.datetime.utcnow())
     removed_at = DateTimeField()
+    last_seen = DateTimeField()
 
     class Meta:
         table_name = "units"
