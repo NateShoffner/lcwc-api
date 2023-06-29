@@ -42,10 +42,10 @@ class IncidentResolver:
                     Incident.resolved_at: datetime.datetime.utcnow(),
                     Incident.automatically_resolved: True,
                 }
-            ).where(Incident.resolved_at.is_null(True) & Incident.updated_at <= then)
+            ).where((Incident.resolved_at.is_null(True)) & (Incident.updated_at <= then))
 
             r = q.execute()
-            self.logger.info(f"Resolved {r} previously unresolved incidents")
+            self.logger.info(f"Resolved {r} previously unresolved incident(s)")
 
         except Exception as e:
             self.logger.error(f"Failed to resolve unresolved incidents: {e}")
