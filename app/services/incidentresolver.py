@@ -42,7 +42,7 @@ class IncidentResolver:
                     Incident.resolved_at: datetime.datetime.utcnow(),
                     Incident.automatically_resolved: True,
                 }
-            ).where(Incident.resolved_at == None, Incident.updated_at <= then)
+            ).where(Incident.resolved_at.is_null(True) & Incident.updated_at <= then)
 
             r = q.execute()
             self.logger.info(f"Resolved {r} previously unresolved incidents")
