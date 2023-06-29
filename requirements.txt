@@ -9,3 +9,4 @@ uvicorn==0.18.3
 toml
 urllib3
 redis
+googlemaps
