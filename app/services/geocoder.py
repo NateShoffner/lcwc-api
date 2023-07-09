@@ -3,7 +3,7 @@ import hashlib
 import json
 import logging
 import redis
-from lcwc.arcgis import Incident
+from lcwc.arcgis import ArcGISIncident as Incident
 
 
 class IncidentGeocoder:

@@ -9,7 +9,7 @@ from fastapi_utils.tasks import repeat_every
 from lcwc.category import IncidentCategory
 from app.models.unit import Unit as UnitModel
 from app.services.geocoder import IncidentGeocoder
-from lcwc.arcgis import Client, Incident
+from lcwc.arcgis import ArcGISClient as Client, ArcGISIncident as Incident
 from app.utils.info import get_lcwc_dist, get_lcwc_version
 from app.models.incident import Incident as IncidentModel
 
