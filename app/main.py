@@ -57,7 +57,7 @@ database_proxy.initialize(database)
 database.connect()
 database.create_tables([IncidentModel, UnitModel])
 
-redis_client = redis.Redis(host=env['REDIS_HOST'], port=env['REDIS_PORT'])
+redis_client = redis.Redis(host=env["REDIS_HOST"], port=env["REDIS_PORT"])
 
 app = FastAPI(
     description="LCWC API",
@@ -84,7 +84,12 @@ lcwc_config = config["lcwc"]
 geocoder = IncidentGeocoder(env["GOOGLE_MAPS_API_KEY"], redis_client)
 
 updater = IncidentUpdater(
-    app, database, timedelta(seconds=int(lcwc_config["update_interval"])), geocoder, env['GEOCODING_ENABLED']
+    app,
+    database,
+    timedelta(seconds=int(lcwc_config["update_interval"])),
+    redis_client,
+    geocoder,
+    env["GEOCODING_ENABLED"].lower() == "true",
 )
 
 resolver_config = config["resolver"]
