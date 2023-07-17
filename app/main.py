@@ -8,12 +8,14 @@ from app.models import database_proxy
 from app.models.incident import Incident as IncidentModel
 from app.models.unit import Unit as UnitModel
 from app.routers import incidents, root
+from app.services.agencyupdater import AgencyUpdater
 from app.services.geocoder import IncidentGeocoder
 from app.services.incidentresolver import IncidentResolver
 from app.services.updater import IncidentUpdater
 from app.utils.info import get_lcwc_version
 from dotenv import dotenv_values
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from peewee import *
 
 env = dotenv_values(".env")
@@ -71,6 +73,15 @@ app = FastAPI(
     },
 )
 
+# TODO shove CORS into config
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(root.router, include_in_schema=False)
 app.include_router(incidents.router, prefix="/api/v1")
 
@@ -90,6 +101,13 @@ updater = IncidentUpdater(
     redis_client,
     geocoder,
     env["GEOCODING_ENABLED"].lower() == "true",
+)
+
+agency_updater = AgencyUpdater(
+    app,
+    database,
+    timedelta(hours=int(lcwc_config["agency_update_interval"])),
+    redis_client
 )
 
 resolver_config = config["resolver"]
