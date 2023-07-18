@@ -2,10 +2,8 @@ import logging
 import aiohttp
 import time
 import datetime
-import fastapi
 import peewee
 import redis
-from fastapi_utils.tasks import repeat_every
 from lcwc.category import IncidentCategory
 from app.models.unit import Unit as UnitModel
 from app.services.geocoder import IncidentGeocoder
@@ -19,9 +17,7 @@ from app.models.incident import Incident as IncidentModel
 class IncidentUpdater:
     def __init__(
         self,
-        app: fastapi.FastAPI,
         db: peewee.Database,
-        update_interval: datetime.timedelta,
         redis: redis.Redis,
         geocoder: IncidentGeocoder,
         use_geocoder: bool = False,
@@ -29,12 +25,12 @@ class IncidentUpdater:
         """Initializes the incident updater
 
         Args:
-            app (FastAPI): The FastAPI application
             db (peewee.Database): The database connection
-            update_interval (datetime.timedelta): The interval at which to update incidents
+            redis (redis.Redis): The redis connection
+            geocoder (IncidentGeocoder): The geocoder to use
+            use_geocoder (bool, optional): Whether or not to use the geocoder. Defaults to False.
         """
 
-        self.app = app
         self.db = db
         self.redis = redis
         self.geocoder = geocoder
@@ -51,11 +47,6 @@ class IncidentUpdater:
         self.parser_name = f"python-lcwc-arcgis-{lcwc_dist.version}"
 
         self.update_count = 0
-
-        @app.on_event("startup")
-        @repeat_every(seconds=update_interval.total_seconds())
-        async def update_repeater():
-            await self.update_incidents()
 
     @property
     def last_updated(self) -> datetime.datetime:

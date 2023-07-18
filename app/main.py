@@ -16,6 +16,7 @@ from app.utils.info import get_lcwc_version
 from dotenv import dotenv_values
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_utils.tasks import repeat_every
 from peewee import *
 
 env = dotenv_values(".env")
@@ -94,29 +95,41 @@ lcwc_config = config["lcwc"]
 
 geocoder = IncidentGeocoder(env["GOOGLE_MAPS_API_KEY"], redis_client)
 
+# incident updater
+
 updater = IncidentUpdater(
-    app,
     database,
-    timedelta(seconds=int(lcwc_config["update_interval"])),
     redis_client,
     geocoder,
     env["GEOCODING_ENABLED"].lower() == "true",
 )
+@app.on_event("startup")
+@repeat_every(seconds=timedelta(hours=int(lcwc_config["update_interval"])).total_seconds())
+async def update_repeater():
+    await updater.update_incidents()
+
+# agency updater
 
 agency_updater = AgencyUpdater(
-    app,
     database,
-    timedelta(hours=int(lcwc_config["agency_update_interval"])),
     redis_client
 )
+@app.on_event("startup")
+@repeat_every(seconds=timedelta(hours=int(lcwc_config["agency_update_interval"])).total_seconds())
+async def update_repeater():
+    await agency_updater.update_agencies()
+
+# automatic incident resolver
 
 resolver_config = config["resolver"]
 if resolver_config["enabled"]:
-    pruner = IncidentResolver(
-        app,
-        timedelta(minutes=int(resolver_config["interval"])),
+    resolver = IncidentResolver(
         timedelta(minutes=int(resolver_config["threshold"])),
     )
+    @app.on_event("startup")
+    @repeat_every(seconds=timedelta(hours=int(lcwc_config["agency_update_interval"])).total_seconds())
+    async def update_repeater():
+        await resolver.resolve_hanging_incidents()
 
 if __name__ == "__main__":
     uvicorn.run(app, host=env["HOSTNAME"], port=int(env["PORT"]))

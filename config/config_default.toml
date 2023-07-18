@@ -1,5 +1,6 @@
 [lcwc]
 update_interval = 10 # seconds
+agency_update_interval = 12 # hours
 
 [resolver]
 enabled = true
