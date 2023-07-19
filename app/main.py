@@ -8,6 +8,8 @@ from app.models import database_proxy
 from app.models.incident import Incident as IncidentModel
 from app.models.unit import Unit as UnitModel
 from app.routers import incidents, root
+from app.models.agency import Agency as AgencyModel
+from app.routers import incidents, root, agencies
 from app.services.agencyupdater import AgencyUpdater
 from app.services.geocoder import IncidentGeocoder
 from app.services.incidentresolver import IncidentResolver
@@ -58,7 +60,7 @@ database = MySQLDatabase(
 
 database_proxy.initialize(database)
 database.connect()
-database.create_tables([IncidentModel, UnitModel])
+database.create_tables([IncidentModel, UnitModel, AgencyModel])
 
 redis_client = redis.Redis(host=env["REDIS_HOST"], port=env["REDIS_PORT"])
 
@@ -85,6 +87,8 @@ app.add_middleware(
 
 app.include_router(root.router, include_in_schema=False)
 app.include_router(incidents.router, prefix="/api/v1")
+app.include_router(agencies.agency_router, prefix="/api/v1")
+app.include_router(agencies.agencies_router, prefix="/api/v1")
 
 root_logger.info("Starting LCWC API...")
 root_logger.info("Database: %s", database.database)
