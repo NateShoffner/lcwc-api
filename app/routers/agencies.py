@@ -14,16 +14,10 @@ agency_router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-agencies_router = APIRouter(
-    prefix="/agencies",
-    tags=["agencies"],
-    responses={404: {"description": "Not found"}},
-)
-
 logger = logging.getLogger(__name__)
 
 
-@agencies_router.get("/{category}")
+@agency_router.get("/{category}")
 async def agencies(category: IncidentCategory):
     """Get all agencies for a given category"""
 

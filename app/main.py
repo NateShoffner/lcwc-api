@@ -1,13 +1,12 @@
+from distutils.util import strtobool
 import logging
 import os
 import redis
-import toml
 import uvicorn
 from datetime import timedelta
 from app.models import database_proxy
 from app.models.incident import Incident as IncidentModel
 from app.models.unit import Unit as UnitModel
-from app.routers import incidents, root
 from app.models.agency import Agency as AgencyModel
 from app.routers import incidents, root, agencies
 from app.services.agencyupdater import AgencyUpdater
@@ -22,7 +21,6 @@ from fastapi_utils.tasks import repeat_every
 from peewee import *
 
 env = dotenv_values(".env")
-config = toml.load("config/config.toml")
 
 LOG_DIRECTORY = "logs"
 
@@ -88,14 +86,11 @@ app.add_middleware(
 app.include_router(root.router, include_in_schema=False)
 app.include_router(incidents.router, prefix="/api/v1")
 app.include_router(agencies.agency_router, prefix="/api/v1")
-app.include_router(agencies.agencies_router, prefix="/api/v1")
 
 root_logger.info("Starting LCWC API...")
 root_logger.info("Database: %s", database.database)
 
 root_logger.info("lcwc version: %s", get_lcwc_version())
-
-lcwc_config = config["lcwc"]
 
 geocoder = IncidentGeocoder(env["GOOGLE_MAPS_API_KEY"], redis_client)
 
@@ -105,35 +100,46 @@ updater = IncidentUpdater(
     database,
     redis_client,
     geocoder,
-    env["GEOCODING_ENABLED"].lower() == "true",
+    strtobool(env["GEOCODING_ENABLED"]),
 )
+
+
 @app.on_event("startup")
-@repeat_every(seconds=timedelta(hours=int(lcwc_config["update_interval"])).total_seconds())
+@repeat_every(
+    seconds=timedelta(hours=int(env.get("LCWC_UPDATE_INTERVAL"))).total_seconds()
+)
 async def update_repeater():
     await updater.update_incidents()
 
+
 # agency updater
 
-agency_updater = AgencyUpdater(
-    database,
-    redis_client
-)
+agency_updater = AgencyUpdater(database, redis_client)
+
+
 @app.on_event("startup")
-@repeat_every(seconds=timedelta(hours=int(lcwc_config["agency_update_interval"])).total_seconds())
+@repeat_every(
+    seconds=timedelta(hours=int(env.get("LCWC_AGENCY_UPDATE_INTERVAL"))).total_seconds()
+)
 async def update_repeater():
     await agency_updater.update_agencies()
 
-# automatic incident resolver
 
-resolver_config = config["resolver"]
-if resolver_config["enabled"]:
+# automatic incident resolver
+if strtobool(env.get("INCIDENT_RESOLVER_ENABLED")):
     resolver = IncidentResolver(
-        timedelta(minutes=int(resolver_config["threshold"])),
+        timedelta(minutes=int(env.get("INCIDENT_RESOLVER_THRESHOLD"))),
     )
+
     @app.on_event("startup")
-    @repeat_every(seconds=timedelta(hours=int(lcwc_config["agency_update_interval"])).total_seconds())
+    @repeat_every(
+        seconds=timedelta(
+            hours=int(env.get("INCIDENT_RESOLVER_INTERVAL"))
+        ).total_seconds()
+    )
     async def update_repeater():
         await resolver.resolve_hanging_incidents()
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host=env["HOSTNAME"], port=int(env["PORT"]))
