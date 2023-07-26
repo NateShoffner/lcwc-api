@@ -54,6 +54,22 @@ async def search_agencies(
 
     return [model_to_dict(agency) for agency in agencies]
 
+@agency_router.get("/stats")
+async def agency_stats():
+    """Get agency stats"""
+
+    stats = {}
+    try:
+        stats = {
+            "total": Agency.select().count(),
+            "fire": Agency.select().where(Agency.category == IncidentCategory.FIRE).count(),
+            "medical": Agency.select().where(Agency.category == IncidentCategory.MEDICAL).count(),
+            "traffic": Agency.select().where(Agency.category == IncidentCategory.TRAFFIC).count(),
+        }
+    except Agency.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Agencies not found")
+    return stats
+
 
 @agency_router.get("/{category}")
 async def agencies(category: IncidentCategory):
