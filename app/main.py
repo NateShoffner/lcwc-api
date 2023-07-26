@@ -4,6 +4,7 @@ import os
 import redis
 import uvicorn
 from datetime import timedelta
+from app.middleware import ProcessTimeHeaderMiddleware
 from app.models import database_proxy
 from app.models.incident import Incident as IncidentModel
 from app.models.unit import Unit as UnitModel
@@ -82,6 +83,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(ProcessTimeHeaderMiddleware)
 
 app.include_router(root.router, include_in_schema=False)
 app.include_router(incidents.router, prefix="/api/v1")
