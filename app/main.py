@@ -9,7 +9,7 @@ from app.models import database_proxy
 from app.models.incident import Incident as IncidentModel
 from app.models.unit import Unit as UnitModel
 from app.models.agency import Agency as AgencyModel
-from app.routers import incidents, root, agencies
+from app.routers import incidents, root, agencies, meta
 from app.services.agencyupdater import AgencyUpdater
 from app.services.geocoder import IncidentGeocoder
 from app.services.incidentresolver import IncidentResolver
@@ -87,6 +87,7 @@ app.add_middleware(
 app.add_middleware(ProcessTimeHeaderMiddleware)
 
 app.include_router(root.router, include_in_schema=False)
+app.include_router(meta.router, prefix="/api/v1")
 app.include_router(incidents.router, prefix="/api/v1")
 app.include_router(agencies.agency_router, prefix="/api/v1")
 
