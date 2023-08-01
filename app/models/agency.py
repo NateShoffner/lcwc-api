@@ -1,9 +1,11 @@
 import datetime
+import uuid
 from app.models import BaseModel
 from peewee import *
 
 
 class Agency(BaseModel):
+    id = UUIDField(default=uuid.uuid4)
     category = CharField()
     station_id = CharField()
     name = CharField()
