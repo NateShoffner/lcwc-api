@@ -1,6 +1,6 @@
 import datetime
-from app.models import BaseModel
-from app.models.incident import Incident
+from app.api.models import BaseModel
+from app.api.models.incident import Incident
 from peewee import *
 
 

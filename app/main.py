@@ -5,11 +5,11 @@ import redis
 import uvicorn
 from datetime import timedelta
 from app.middleware import ProcessTimeHeaderMiddleware
-from app.models import database_proxy
-from app.models.incident import Incident as IncidentModel
-from app.models.unit import Unit as UnitModel
-from app.models.agency import Agency as AgencyModel
-from app.routers import incidents, root, agencies, meta
+from app.api.models import database_proxy
+from app.api.models.incident import Incident as IncidentModel
+from app.api.models.unit import Unit as UnitModel
+from app.api.models.agency import Agency as AgencyModel
+from app.api.routes import incidents, root, agencies, meta
 from app.services.agencyupdater import AgencyUpdater
 from app.services.geocoder import IncidentGeocoder
 from app.services.incidentresolver import IncidentResolver
@@ -49,13 +49,7 @@ root_logger.addHandler(console_logger)
 
 root_logger.info("Connecting to database...")
 
-database = MySQLDatabase(
-    env["DB_NAME"],
-    user=env["DB_USER"],
-    password=env["DB_PASSWORD"],
-    host=env["DB_HOST"],
-    port=int(env["DB_PORT"]),
-)
+database = SqliteDatabase("lcwc.db")
 
 database_proxy.initialize(database)
 database.connect()
@@ -110,7 +104,7 @@ updater = IncidentUpdater(
 
 @app.on_event("startup")
 @repeat_every(
-    seconds=timedelta(hours=int(env.get("LCWC_UPDATE_INTERVAL"))).total_seconds()
+    seconds=timedelta(seconds=int(env.get("LCWC_UPDATE_INTERVAL"))).total_seconds()
 )
 async def update_repeater():
     await updater.update_incidents()

@@ -6,8 +6,8 @@ from playhouse.shortcuts import model_to_dict
 from peewee import fn
 from pydantic import BaseModel
 from app.utils.info import get_lcwc_version
-from app.models.incident import Incident
-from app.models.unit import Unit
+from app.api.models.incident import Incident
+from app.api.models.unit import Unit
 
 router = APIRouter()
 

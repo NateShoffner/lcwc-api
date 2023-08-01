@@ -1,5 +1,5 @@
 import datetime
-from app.models import BaseModel
+from app.api.models import BaseModel
 from peewee import *
 
 

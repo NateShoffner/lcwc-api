@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from playhouse.shortcuts import model_to_dict
 from peewee import fn
 from pydantic import BaseModel
-from app.models.agency import Agency
+from app.api.models.agency import Agency
 
 agency_router = APIRouter(
     prefix="/agencies",
@@ -54,6 +54,7 @@ async def search_agencies(
 
     return [model_to_dict(agency) for agency in agencies]
 
+
 @agency_router.get("/stats")
 async def agency_stats():
     """Get agency stats"""
@@ -62,9 +63,15 @@ async def agency_stats():
     try:
         stats = {
             "total": Agency.select().count(),
-            "fire": Agency.select().where(Agency.category == IncidentCategory.FIRE).count(),
-            "medical": Agency.select().where(Agency.category == IncidentCategory.MEDICAL).count(),
-            "traffic": Agency.select().where(Agency.category == IncidentCategory.TRAFFIC).count(),
+            "fire": Agency.select()
+            .where(Agency.category == IncidentCategory.FIRE)
+            .count(),
+            "medical": Agency.select()
+            .where(Agency.category == IncidentCategory.MEDICAL)
+            .count(),
+            "traffic": Agency.select()
+            .where(Agency.category == IncidentCategory.TRAFFIC)
+            .count(),
         }
     except Agency.DoesNotExist:
         raise HTTPException(status_code=404, detail="Agencies not found")

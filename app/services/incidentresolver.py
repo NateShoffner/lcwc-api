@@ -1,8 +1,9 @@
 import datetime
 import logging
-from app.models.incident import Incident
+from app.api.models.incident import Incident
 
 """ Prunes unresolved incidents after an extended period of time from the database """
+
 
 class IncidentResolver:
     def __init__(
@@ -29,7 +30,9 @@ class IncidentResolver:
                     Incident.resolved_at: datetime.datetime.utcnow(),
                     Incident.automatically_resolved: True,
                 }
-            ).where((Incident.resolved_at.is_null(True)) & (Incident.updated_at <= then))
+            ).where(
+                (Incident.resolved_at.is_null(True)) & (Incident.updated_at <= then)
+            )
 
             r = q.execute()
             self.logger.info(f"Resolved {r} previously unresolved incident(s)")
