@@ -15,13 +15,13 @@ from app.services.geocoder import IncidentGeocoder
 from app.services.incidentresolver import IncidentResolver
 from app.services.updater import IncidentUpdater
 from app.utils.info import get_lcwc_version
-from dotenv import dotenv_values
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_utils.tasks import repeat_every
 from peewee import *
 
-env = dotenv_values(".env")
+env = load_dotenv(".env")
 
 LOG_DIRECTORY = "logs"
 
@@ -49,13 +49,25 @@ root_logger.addHandler(console_logger)
 
 root_logger.info("Connecting to database...")
 
-database = SqliteDatabase("lcwc.db")
+sqlite_db = os.getenv("SQLITE_DB")
+print(sqlite_db)
+
+if sqlite_db:
+    database = SqliteDatabase(sqlite_db)
+else:
+    database = MySQLDatabase(
+        os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=int(os.getenv("DB_PORT")),
+    )
 
 database_proxy.initialize(database)
 database.connect()
 database.create_tables([IncidentModel, UnitModel, AgencyModel])
 
-redis_client = redis.Redis(host=env["REDIS_HOST"], port=env["REDIS_PORT"])
+redis_client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"))
 
 app = FastAPI(
     description="LCWC API",
@@ -90,7 +102,7 @@ root_logger.info("Database: %s", database.database)
 
 root_logger.info("lcwc version: %s", get_lcwc_version())
 
-geocoder = IncidentGeocoder(env["GOOGLE_MAPS_API_KEY"], redis_client)
+geocoder = IncidentGeocoder(os.getenv("GOOGLE_MAPS_API_KEY"), redis_client)
 
 # incident updater
 
@@ -98,13 +110,13 @@ updater = IncidentUpdater(
     database,
     redis_client,
     geocoder,
-    strtobool(env["GEOCODING_ENABLED"]),
+    strtobool(os.getenv("GEOCODING_ENABLED")),
 )
 
 
 @app.on_event("startup")
 @repeat_every(
-    seconds=timedelta(seconds=int(env.get("LCWC_UPDATE_INTERVAL"))).total_seconds()
+    seconds=timedelta(seconds=int(os.getenv("LCWC_UPDATE_INTERVAL"))).total_seconds()
 )
 async def update_repeater():
     await updater.update_incidents()
@@ -117,22 +129,22 @@ agency_updater = AgencyUpdater(database, redis_client)
 
 @app.on_event("startup")
 @repeat_every(
-    seconds=timedelta(hours=int(env.get("LCWC_AGENCY_UPDATE_INTERVAL"))).total_seconds()
+    seconds=timedelta(hours=int(os.getenv("LCWC_AGENCY_UPDATE_INTERVAL"))).total_seconds()
 )
 async def update_repeater():
     await agency_updater.update_agencies()
 
 
 # automatic incident resolver
-if strtobool(env.get("INCIDENT_RESOLVER_ENABLED")):
+if strtobool(os.getenv("INCIDENT_RESOLVER_ENABLED")):
     resolver = IncidentResolver(
-        timedelta(minutes=int(env.get("INCIDENT_RESOLVER_THRESHOLD"))),
+        timedelta(minutes=int(os.getenv("INCIDENT_RESOLVER_THRESHOLD"))),
     )
 
     @app.on_event("startup")
     @repeat_every(
         seconds=timedelta(
-            hours=int(env.get("INCIDENT_RESOLVER_INTERVAL"))
+            hours=int(os.getenv("INCIDENT_RESOLVER_INTERVAL"))
         ).total_seconds()
     )
     async def update_repeater():
@@ -140,4 +152,4 @@ if strtobool(env.get("INCIDENT_RESOLVER_ENABLED")):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=env["HOSTNAME"], port=int(env["PORT"]))
+    uvicorn.run(app, host=os.getenv("HOSTNAME"), port=int(os.getenv("PORT")))
