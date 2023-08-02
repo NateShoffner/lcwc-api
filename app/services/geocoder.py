@@ -25,7 +25,7 @@ class IncidentGeocoder:
             self.logger.debug(f"No intersection found for incident: {incident.number}")
             return None
 
-        addr = f"{incident.intersection}, {incident.township}, LANCASTER COUNTY, PA"
+        addr = f"{incident.intersection}, {incident.municipality}, LANCASTER COUNTY, PA"
         return addr
 
     def get_coordinates(self, incident: Incident) -> tuple[float, float]:

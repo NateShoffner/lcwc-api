@@ -8,7 +8,7 @@ class Incident(BaseModel):
     category = CharField()
     description = CharField()
     intersection = CharField(null=True)
-    township = CharField()
+    municipality = CharField()
     dispatched_at = DateTimeField()
     number = IntegerField(unique=True)
     priority = IntegerField(null=True)

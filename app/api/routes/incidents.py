@@ -47,7 +47,7 @@ async def incidents(
     category: str = None,
     description: str = None,
     intersection: str = None,
-    township: str = None,
+    municipality: str = None,
     dispacted_at: datetime.date = None,
     show_related: bool = False,
 ):
@@ -63,8 +63,8 @@ async def incidents(
         incidents = incidents.where(Incident.description.contains(description))
     if intersection:
         incidents = incidents.where(Incident.intersection.contains(intersection))
-    if township:
-        incidents = incidents.where(Incident.township.contains(township))
+    if municipality:
+        incidents = incidents.where(Incident.municipality.contains(municipality))
     if dispacted_at:
         incidents = incidents.where(Incident.dispatched_at == dispacted_at)
 
