@@ -8,7 +8,7 @@ class Unit(BaseModel):
     incident = ForeignKeyField(Incident, backref="units")
     name = CharField()
     added_at = DateTimeField(default=datetime.datetime.utcnow())
-    removed_at = DateTimeField()
+    removed_at = DateTimeField(null=True)
     last_seen = DateTimeField()
 
     class Meta:
