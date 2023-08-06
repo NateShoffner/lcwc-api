@@ -42,9 +42,7 @@ class IncidentUpdater:
 
         # TODO initialize cached incidents from redis
 
-        lcwc_dist = get_lcwc_dist()
-        # TODO properly identify parser
-        self.parser_name = f"python-lcwc-arcgis-{lcwc_dist.version}"
+        self.parser_name = f"{self.incident_client.name}-{get_lcwc_dist().version}"
 
         self.update_count = 0
 
