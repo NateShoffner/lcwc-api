@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class ResponseModel(BaseModel):
-    message: str
+    message: Optional[str] = None
     data: Optional[dict] = None
 
 
@@ -38,10 +38,10 @@ async def stats():
         "lcwc_version": get_lcwc_version(),
     }
 
-    return ResponseModel(status=True, message="Success", data=data)
+    return ResponseModel(status=True, data=data)
 
 
-@router.get("/incidents")
+@router.get("/incidents/active")
 async def incidents(
     guid: str = None,
     category: str = None,
@@ -75,7 +75,7 @@ async def incidents(
         "incidents": [model_to_dict(item) for item in incidents],
     }
 
-    return ResponseModel(status=True, message="Success", data=data)
+    return ResponseModel(status=True, data=data)
 
 
 @router.get("/incidents/by-date-range/{start}/{end}")
@@ -94,7 +94,7 @@ async def incident(start: datetime.date, end: datetime.date):
         "incidents": [model_to_dict(item) for item in incidents],
     }
 
-    return ResponseModel(status=True, message="Success", data=data)
+    return ResponseModel(status=True, data=data)
 
 
 @router.get("/incident/id/{id}")
@@ -105,7 +105,7 @@ async def incident(id: int):
         raise HTTPException(
             status_code=404, detail=f"Incident with {id=} does not exist."
         )
-    return ResponseModel(status=True, message="Success", data=model_to_dict(incident))
+    return ResponseModel(status=True, data=model_to_dict(incident))
 
 
 @router.get("/incidents/related/{id}")
@@ -123,4 +123,4 @@ async def incident(id: int):
         "incidents": [model_to_dict(item) for item in incidents],
     }
 
-    return ResponseModel(status=True, message="Success", data=data)
+    return ResponseModel(status=True, data=data)
