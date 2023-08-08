@@ -4,11 +4,10 @@ import time
 import datetime
 import peewee
 import redis
-from lcwc.category import IncidentCategory
 from app.api.models.unit import Unit as UnitModel
 from app.services.geocoder import IncidentGeocoder
 from lcwc.arcgis import ArcGISClient as Client, ArcGISIncident as Incident
-from app.utils.info import get_lcwc_dist, get_lcwc_version
+from app.utils.info import get_lcwc_dist
 from app.api.models.incident import Incident as IncidentModel
 
 """ Updates the list of active incidents from the LCWC feed """
@@ -42,7 +41,7 @@ class IncidentUpdater:
 
         # TODO initialize cached incidents from redis
 
-        self.parser_name = f"{self.incident_client.name}-{get_lcwc_dist().version}"
+        self.parser_name = f"{self.incident_client.name} v{get_lcwc_dist().version}"
 
         self.update_count = 0
 
@@ -64,8 +63,9 @@ class IncidentUpdater:
         new_incidents = [x for x in incidents if x.number not in self.cached_incidents]
 
         # track units that have been assigned and unassigned, keyed by incident number
-        assigned_units = {}
+        newly_assigned_units = {}
         unassigned_units = {}
+        persisted_units = {}
 
         # check all the known incidents and see what units have been assigned and unassigned
         for incident in known_incidents:
@@ -74,10 +74,12 @@ class IncidentUpdater:
             # check for newly assigned units
             for unit in incident.units:
                 if unit not in cached_incident.units:
-                    assigned_units.setdefault(incident.number, []).append(unit)
+                    newly_assigned_units.setdefault(incident.number, []).append(unit)
                     self.logger.info(
                         f"Unit {unit} assigned to incident {incident.number}"
                     )
+                else:  # unit has persisted
+                    persisted_units.setdefault(incident.number, []).append(unit)
 
             # check for unassigned units
             for unit in cached_incident.units:
@@ -112,23 +114,25 @@ class IncidentUpdater:
                 f"New: {len(new_incidents)} | Known: {len(known_incidents)} | Resolved: {len(resolved_incidents)}"
             )
 
-        if len(assigned_units) > 0 or len(unassigned_units) > 0:
-            total_assigned = 0
-            for units in assigned_units.values():
-                total_assigned = total_assigned + len(units)
+        total_assigned = 0
+        total_unassigned = 0
+        total_persisted = 0
 
-            total_unassigned = 0
-            for units in unassigned_units.values():
-                total_unassigned = total_unassigned + len(units)
+        for units in newly_assigned_units.values():
+            total_assigned = total_assigned + len(units)
+        for units in unassigned_units.values():
+            total_unassigned = total_unassigned + len(units)
+        for units in persisted_units.values():
+            total_persisted = total_persisted + len(units)
 
-            self.logger.info(
-                f"Units Assigned: {total_assigned} | Units Unassigned: {total_unassigned}"
-            )
-
+        self.logger.info(
+            f"Units Assigned: {total_assigned} | Units Unassigned: {total_unassigned} | Units Persisted: {total_persisted}"
+        )
         self.cached_incidents = {x.number: x for x in incidents}
         self.save_incidents(incidents, resolved_incidents)
-        self.save_units(assigned_units, True)
-        self.save_units(unassigned_units, False)
+
+        self.update_units(newly_assigned_units, True)
+        self.update_units(unassigned_units, False)
 
     async def update_incidents(self) -> None:
         self.logger.info("Updating incidents...")
@@ -152,42 +156,29 @@ class IncidentUpdater:
         self.last_update = datetime.datetime.utcnow()
         self.__process_incidents(live_incidents)
 
-    def save_units(self, units_dict: dict[int, list[str]], assigned: bool):
+    def update_units(self, units_dict: dict[int, list[str]], assigned: bool):
         if assigned:
+            print("Saving assigned units...")
             with self.db.atomic():
                 for incident_number, units in units_dict.items():
-                    self.logger.info(
-                        f"Saving {len(units)} units for incident {incident_number}..."
+                    print(f"Getting incident {incident_number}...")
+
+                    incident = IncidentModel.get(
+                        IncidentModel.number == incident_number
                     )
 
-                    try:
-                        incident = IncidentModel.get(
-                            IncidentModel.number == incident_number
-                        )
-                    except Exception as e:
-                        self.logger.error(
-                            f"Error getting incident {incident_number}: {e}"
-                        )
-                        continue
+                    print(f"Saving units for incident {incident_number}...")
 
-                    print(incident)
                     for unit in units:
-                        print(unit)
+                        try:
+                            UnitModel.create(
+                                incident=incident,
+                                name=unit,
+                                added_at=datetime.datetime.utcnow(),
+                            )
+                        except Exception as e:
+                            self.logger.error(f"Error saving unit {unit}: {e}")
 
-                        query = UnitModel.insert(
-                            {
-                                UnitModel.name: unit,
-                                UnitModel.incident: incident,
-                                UnitModel.added_at: datetime.datetime.utcnow(),
-                                UnitModel.last_seen: datetime.datetime.utcnow(),
-                            }
-                        ).on_conflict(
-                            conflict_target=[UnitModel.name, UnitModel.incident],
-                            update={
-                                UnitModel.last_seen: datetime.datetime.utcnow(),
-                            },
-                        )
-                        query.execute()
         else:
             with self.db.atomic():
                 for incident_number, units in units_dict.items():
@@ -240,12 +231,17 @@ class IncidentUpdater:
                     self.logger.error(e)
 
         with self.db.atomic():
-            # mark de-listed incidents as resolved
             self.logger.info(
                 f"Marking {len(resolved_incidents)} incidents as resolved..."
             )
             for incident in resolved_incidents:
-                query = IncidentModel.update(
-                    resolved_at=datetime.datetime.utcnow()
-                ).where(Incident.number == incident.number)
-                query.execute()
+                try:
+                    query = IncidentModel.update(
+                        resolved_at=datetime.datetime.utcnow()
+                    ).where(IncidentModel.number == incident.number)
+                    r = query.execute()
+                    self.logger.debug(f"Resolved incident {incident.number} ({r})")
+                except Exception as e:
+                    self.logger.error(
+                        f"Error resolving incident {incident.number}: {e}"
+                    )
