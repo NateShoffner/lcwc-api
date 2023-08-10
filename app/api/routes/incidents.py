@@ -43,20 +43,15 @@ async def stats():
 
 @router.get("/incidents/active")
 async def incidents(
-    guid: str = None,
     category: str = None,
     description: str = None,
     intersection: str = None,
     municipality: str = None,
-    dispacted_at: datetime.date = None,
-    show_related: bool = False,
 ):
     """Returns a list of active incidents"""
 
-    incidents = Incident.select().where(Incident.resolved_at.is_null())
+    incidents = Incident.select().join(Unit).where(Incident.resolved_at.is_null())
 
-    if guid:
-        incidents = incidents.where(Incident.guid == guid)
     if category:
         incidents = incidents.where(Incident.category == category)
     if description:
@@ -65,14 +60,12 @@ async def incidents(
         incidents = incidents.where(Incident.intersection.contains(intersection))
     if municipality:
         incidents = incidents.where(Incident.municipality.contains(municipality))
-    if dispacted_at:
-        incidents = incidents.where(Incident.dispatched_at == dispacted_at)
 
     incidents.order_by(Incident.dispatched_at.desc())
 
     data = {
         "count": len(incidents),
-        "incidents": [model_to_dict(item) for item in incidents],
+        "incidents": [model_to_dict(item, backrefs=True) for item in incidents],
     }
 
     return ResponseModel(status=True, data=data)
