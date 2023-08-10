@@ -88,15 +88,15 @@ def seed_incidents():
         except Exception as e:
             print(f"Error saving incident: {e}")
 
-        random_unit_count = fake.random_int(min=1, max=5)
+        random_unit_count = fake.random_int(min=1, max=3)
         for _ in range(random_unit_count):
-            unit = Unit(
-                incident=incident,
-                name=fake.unit_name(),
-                added_at=fake.date_time_between(start_date="-1d", end_date="now"),
-                last_seen=fake.date_time_between(start_date="-1d", end_date="now"),
-            )
             try:
+                unit = Unit(
+                    incident=incident,
+                    short_name=fake.unit_name(),
+                    added_at=fake.date_time_between(start_date="-1d", end_date="now"),
+                    last_seen=fake.date_time_between(start_date="-1d", end_date="now"),
+                )
                 unit.save(force_insert=True)
             except Exception as e:
                 print(f"Error saving unit: {e}")

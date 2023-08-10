@@ -7,6 +7,7 @@ import redis
 from app.api.models.unit import Unit as UnitModel
 from app.services.geocoder import IncidentGeocoder
 from lcwc.arcgis import ArcGISClient as Client, ArcGISIncident as Incident
+from lcwc.unit import Unit
 from app.utils.info import get_lcwc_dist
 from app.api.models.incident import Incident as IncidentModel
 
@@ -38,8 +39,6 @@ class IncidentUpdater:
         self.cached_incidents = {}
         self.last_update = None
         self.logger = logging.getLogger(__name__)
-
-        # TODO initialize cached incidents from redis
 
         self.parser_name = f"{self.incident_client.name} v{get_lcwc_dist().version}"
 
@@ -132,6 +131,7 @@ class IncidentUpdater:
         self.save_incidents(incidents, resolved_incidents)
 
         self.update_units(newly_assigned_units, True)
+        self.update_units(persisted_units, True)
         self.update_units(unassigned_units, False)
 
     async def update_incidents(self) -> None:
@@ -156,7 +156,7 @@ class IncidentUpdater:
         self.last_update = datetime.datetime.utcnow()
         self.__process_incidents(live_incidents)
 
-    def update_units(self, units_dict: dict[int, list[str]], assigned: bool):
+    def update_units(self, units_dict: dict[int, list[Unit]], assigned: bool):
         if assigned:
             print("Saving assigned units...")
             with self.db.atomic():
@@ -170,15 +170,24 @@ class IncidentUpdater:
                     print(f"Saving units for incident {incident_number}...")
 
                     for unit in units:
-                        try:
-                            UnitModel.create(
+                        r = (
+                            UnitModel.insert(
                                 incident=incident,
-                                name=unit,
+                                short_name=unit.name,
                                 added_at=datetime.datetime.utcnow(),
+                                last_seen=datetime.datetime.utcnow(),
                             )
-                        except Exception as e:
-                            self.logger.error(f"Error saving unit {unit}: {e}")
-
+                            .on_conflict(
+                                conflict_target=[
+                                    UnitModel.incident,
+                                    UnitModel.short_name,
+                                ],
+                                update={
+                                    UnitModel.last_seen: datetime.datetime.utcnow(),
+                                },
+                            )
+                            .execute()
+                        )
         else:
             with self.db.atomic():
                 for incident_number, units in units_dict.items():
