@@ -1,6 +1,8 @@
 from distutils.util import strtobool
 import logging
 import os
+import aioredis
+from fastapi_cache import FastAPICache
 import redis
 import uvicorn
 from datetime import timedelta
@@ -20,6 +22,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_utils.tasks import repeat_every
 from peewee import *
+from fastapi_cache.backends.redis import RedisBackend
 
 env = load_dotenv(".env")
 
@@ -50,7 +53,6 @@ root_logger.addHandler(console_logger)
 root_logger.info("Connecting to database...")
 
 sqlite_db = os.getenv("SQLITE_DB")
-print(sqlite_db)
 
 if sqlite_db:
     database = SqliteDatabase(sqlite_db)
@@ -66,6 +68,7 @@ else:
 database_proxy.initialize(database)
 database.connect()
 database.create_tables([IncidentModel, UnitModel, AgencyModel])
+
 
 redis_client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"))
 
@@ -129,7 +132,9 @@ agency_updater = AgencyUpdater(database, redis_client)
 
 @app.on_event("startup")
 @repeat_every(
-    seconds=timedelta(hours=int(os.getenv("LCWC_AGENCY_UPDATE_INTERVAL"))).total_seconds()
+    seconds=timedelta(
+        hours=int(os.getenv("LCWC_AGENCY_UPDATE_INTERVAL"))
+    ).total_seconds()
 )
 async def update_repeater():
     await agency_updater.update_agencies()
@@ -149,6 +154,12 @@ if strtobool(os.getenv("INCIDENT_RESOLVER_ENABLED")):
     )
     async def update_repeater():
         await resolver.resolve_hanging_incidents()
+
+
+@app.on_event("startup")
+async def startup():
+    redis = aioredis.from_url(f"redis://{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT')}")
+    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
 
 if __name__ == "__main__":
