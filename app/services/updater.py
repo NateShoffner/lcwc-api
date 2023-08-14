@@ -4,12 +4,12 @@ import time
 import datetime
 import peewee
 import redis
-from app.api.models.unit import Unit as UnitModel
+from app.database.models.unit import Unit as UnitModel
 from app.services.geocoder import IncidentGeocoder
 from lcwc.arcgis import ArcGISClient as Client, ArcGISIncident as Incident
 from lcwc.unit import Unit
 from app.utils.info import get_lcwc_dist
-from app.api.models.incident import Incident as IncidentModel
+from app.database.models.incident import Incident as IncidentModel
 
 """ Updates the list of active incidents from the LCWC feed """
 

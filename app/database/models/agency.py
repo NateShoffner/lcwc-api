@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from app.api.models import BaseModel
+from app.database.models import BaseModel
 from peewee import *
 
 

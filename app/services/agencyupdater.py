@@ -6,7 +6,7 @@ import peewee
 import redis
 
 from lcwc.category import IncidentCategory
-from app.api.models.agency import Agency as AgencyModel
+from app.database.models.agency import Agency as AgencyModel
 from lcwc.agencyclient import AgencyClient
 
 

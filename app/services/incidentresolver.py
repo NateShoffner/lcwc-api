@@ -1,7 +1,7 @@
 import datetime
 import logging
-from app.api.models.incident import Incident
-from app.api.models.unit import Unit
+from app.database.models.incident import Incident
+from app.database.models.unit import Unit
 
 """ Prunes unresolved incidents after an extended period of time from the database """
 
@@ -26,7 +26,7 @@ class IncidentResolver:
         self.logger.info(f"Pruning unresolved incidents older than {then}")
 
         try:
-            incident_result = (
+            prune_result = (
                 Incident.update(
                     {
                         Incident.resolved_at: datetime.datetime.utcnow(),
@@ -39,11 +39,9 @@ class IncidentResolver:
                 .execute()
             )
 
-            self.logger.info(
-                f"Resolved {incident_result} previously unresolved incident(s)"
-            )
+            self.logger.info(f"Pruned {prune_result} previously unresolved incident(s)")
 
-            unit_result = (
+            prune_result = (
                 Unit.update(
                     {
                         Unit.removed_at: datetime.datetime.utcnow(),
@@ -54,7 +52,7 @@ class IncidentResolver:
                 .execute()
             )
 
-            self.logger.info(f"Resolved {unit_result} previously unresolved unit(s)")
+            self.logger.info(f"Pruned {prune_result} previously unresolved unit(s)")
 
         except Exception as e:
             self.logger.error(f"Failed to resolve unresolved incidents: {e}")

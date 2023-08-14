@@ -1,26 +1,35 @@
 import datetime
 import logging
+import os
 from typing import Optional
 from fastapi import APIRouter, HTTPException
-from playhouse.shortcuts import model_to_dict
-from peewee import fn
 from pydantic import BaseModel
-from app.utils.info import get_lcwc_version
-from app.api.models.incident import Incident
-from app.api.models.unit import Unit
+from app.api.models.incident import (
+    Incident as IncidentOutput,
+    IncidentResponse,
+    IncidentStats,
+    IncidentsResponse,
+)
+from app.database.models.incident import Incident
+from app.database.models.unit import Unit
+from fastapi_cache.decorator import cache
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/incidents",
+    tags=["incidents"],
+    responses={404: {"description": "Not found"}},
+)
 
 logger = logging.getLogger(__name__)
 
 
 class ResponseModel(BaseModel):
-    message: Optional[str] = None
     data: Optional[dict] = None
 
 
 @router.get("/stats")
-async def stats():
+@cache(expire=os.getenv("CACHE_INCIDENTS_EXPIRE"))
+async def stats() -> IncidentStats:
     """Returns various statistics about the API"""
 
     total_incidents = Incident.select().count()
@@ -31,23 +40,21 @@ async def stats():
         Incident.select().where(Incident.resolved_at.is_null(False)).count()
     )
 
-    data = {
-        "total_incidents": total_incidents,
-        "total_active_incidents": total_active_incidents,
-        "total_resolved_incidents": total_resolved_incidents,
-        "lcwc_version": get_lcwc_version(),
-    }
-
-    return ResponseModel(status=True, data=data)
+    return IncidentStats(
+        total_incidents=total_incidents,
+        total_active_incidents=total_active_incidents,
+        total_resolved_incidents=total_resolved_incidents,
+    )
 
 
-@router.get("/incidents/active")
+@router.get("/active")
+@cache(expire=os.getenv("CACHE_ACTIVE_INCIDENTS_EXPIRE"))
 async def incidents(
     category: str = None,
     description: str = None,
     intersection: str = None,
     municipality: str = None,
-):
+) -> IncidentsResponse:
     """Returns a list of active incidents"""
 
     incidents = Incident.select().join(Unit).where(Incident.resolved_at.is_null())
@@ -63,19 +70,61 @@ async def incidents(
 
     incidents.order_by(Incident.dispatched_at.desc())
 
+    output_incidents = []
+
+    for incident in incidents:
+        output_incidents.append(IncidentOutput.from_db_model(incident))
+
     data = {
-        "count": len(incidents),
-        "incidents": [model_to_dict(item, backrefs=True) for item in incidents],
+        "count": len(output_incidents),
+        "incidents": output_incidents,
     }
 
-    return ResponseModel(status=True, data=data)
+    return IncidentsResponse(data=data)
 
 
-@router.get("/incidents/by-date-range/{start}/{end}")
+@router.get("/id/{incident_id}")
+@cache(expire=os.getenv("CACHE_INCIDENTS_EXPIRE"))
+async def incident(incident_id: str) -> IncidentResponse:
+    try:
+        incident = Incident.get(incident_id)
+    except Incident.DoesNotExist:
+        raise HTTPException(
+            status_code=404, detail=f"Incident with {incident_id=} does not exist."
+        )
+    return IncidentResponse(data=IncidentOutput.from_db_model(incident))
+
+
+@router.get("/related/{incident_id}")
+@cache(expire=os.getenv("CACHE_INCIDENTS_EXPIRE"))
+async def related(incident_id: str, delta_minutes: int = 60):
+    try:
+        incident = Incident.select().where(Incident.id == incident_id).limit(1).get()
+    except Incident.DoesNotExist:
+        raise HTTPException(
+            status_code=404, detail=f"Incident with {incident_id=} does not exist."
+        )
+
+    related = Incident.select().where(
+        Incident.intersection == incident.intersection,
+        Incident.id != incident.id,
+        Incident.added_at.between(
+            incident.added_at - datetime.timedelta(minutes=delta_minutes),
+            incident.added_at + datetime.timedelta(minutes=delta_minutes),
+        ),
+    )
+
+    data = {
+        "count": len(related),
+        "incidents": [IncidentOutput.from_db_model(item) for item in related],
+    }
+
+    return ResponseModel(data=data)
+
+
+@router.get("/by-date-range/{start}/{end}")
+@cache(expire=os.getenv("CACHE_INCIDENTS_EXPIRE"))
 async def incident(start: datetime.date, end: datetime.date):
-    # list(Event.select().where(fn.date_trunc('day', Event.event_date) == event_date_dt))
-    # incidents = IncidentModel.select().where(IncidentModel.category == IncidentCategory.FIRE)
-    # (fn.date('day', Incident.dispacted_at) == date
     incidents = (
         Incident.select()
         .where(Incident.dispatched_at.between(start, end))
@@ -84,36 +133,7 @@ async def incident(start: datetime.date, end: datetime.date):
 
     data = {
         "count": len(incidents),
-        "incidents": [model_to_dict(item) for item in incidents],
+        "incidents": [IncidentOutput.from_db_model(item) for item in incidents],
     }
 
-    return ResponseModel(status=True, data=data)
-
-
-@router.get("/incident/id/{id}")
-async def incident(id: int):
-    try:
-        incident = Incident.get_by_id(int)
-    except Incident.DoesNotExist:
-        raise HTTPException(
-            status_code=404, detail=f"Incident with {id=} does not exist."
-        )
-    return ResponseModel(status=True, data=model_to_dict(incident))
-
-
-@router.get("/incidents/related/{id}")
-async def incident(id: int):
-    incidents = Incident.select().where(
-        Incident.intersection
-        == (Incident.select(Incident.intersection).where(Incident.id == id))
-    )
-
-    incidents.order_by(Incident.dispatched_at.desc())
-
-    data = {
-        "intersection": incidents[0].intersection,
-        "count": len(incidents),
-        "incidents": [model_to_dict(item) for item in incidents],
-    }
-
-    return ResponseModel(status=True, data=data)
+    return ResponseModel(data=data)

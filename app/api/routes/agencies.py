@@ -1,12 +1,14 @@
 import datetime
 import logging
+import os
 from lcwc.category import IncidentCategory
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from playhouse.shortcuts import model_to_dict
 from peewee import fn
 from pydantic import BaseModel
-from app.api.models.agency import Agency
+from app.database.models.agency import Agency
+from fastapi_cache.decorator import cache
 
 agency_router = APIRouter(
     prefix="/agencies",
@@ -18,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @agency_router.get("/search")
+@cache(expire=os.getenv("CACHE_AGENCIES_EXPIRE"))
 async def search_agencies(
     category: Optional[IncidentCategory] = None,
     station_id: Optional[str] = None,
@@ -56,6 +59,7 @@ async def search_agencies(
 
 
 @agency_router.get("/stats")
+@cache(expire=os.getenv("CACHE_AGENCIES_EXPIRE"))
 async def agency_stats():
     """Get agency stats"""
 
@@ -79,6 +83,7 @@ async def agency_stats():
 
 
 @agency_router.get("/{category}")
+@cache(expire=os.getenv("CACHE_AGENCIES_EXPIRE"))
 async def agencies(category: IncidentCategory):
     """Get all agencies for a given category"""
 
@@ -91,6 +96,7 @@ async def agencies(category: IncidentCategory):
 
 
 @agency_router.get("/{category}/{id}")
+@cache(expire=os.getenv("CACHE_AGENCIES_EXPIRE"))
 async def agency(category: IncidentCategory, id: str):
     """Get a single agency for a given category and ID"""
 

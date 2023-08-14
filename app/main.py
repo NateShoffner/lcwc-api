@@ -7,10 +7,10 @@ import redis
 import uvicorn
 from datetime import timedelta
 from app.middleware import ProcessTimeHeaderMiddleware
-from app.api.models import database_proxy
-from app.api.models.incident import Incident as IncidentModel
-from app.api.models.unit import Unit as UnitModel
-from app.api.models.agency import Agency as AgencyModel
+from app.database.models import database_proxy
+from app.database.models.incident import Incident as IncidentModel
+from app.database.models.unit import Unit as UnitModel
+from app.database.models.agency import Agency as AgencyModel
 from app.api.routes import incidents, root, agencies, meta
 from app.services.agencyupdater import AgencyUpdater
 from app.services.geocoder import IncidentGeocoder
@@ -158,8 +158,10 @@ if strtobool(os.getenv("INCIDENT_RESOLVER_ENABLED")):
 
 @app.on_event("startup")
 async def startup():
-    redis = aioredis.from_url(f"redis://{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT')}")
-    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+    redis = aioredis.from_url(
+        f"redis://{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT')}"
+    )
+    FastAPICache.init(RedisBackend(redis), prefix=os.getenv("CACHE_REDIS_KEY"))
 
 
 if __name__ == "__main__":
