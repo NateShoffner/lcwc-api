@@ -11,3 +11,4 @@ urllib3
 redis
 googlemaps
 fastapi-cache2
+aioredis
