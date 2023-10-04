@@ -7,7 +7,7 @@ import redis
 
 from lcwc.category import IncidentCategory
 from app.database.models.agency import Agency as AgencyModel
-from lcwc.agencyclient import AgencyClient
+from lcwc.agencies.agencyclient import AgencyClient
 
 
 class AgencyUpdater:
