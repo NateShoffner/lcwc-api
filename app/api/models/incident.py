@@ -88,5 +88,6 @@ class IncidentResponse(BaseModel):
 
 
 class IncidentsResponse(BaseModel):
+    count: int
     data: list[Incident]
     # TODO pagination

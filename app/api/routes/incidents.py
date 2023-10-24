@@ -75,12 +75,7 @@ async def incidents(
     for incident in incidents:
         output_incidents.append(IncidentOutput.from_db_model(incident))
 
-    data = {
-        "count": len(output_incidents),
-        "incidents": output_incidents,
-    }
-
-    return IncidentsResponse(data=data)
+    return IncidentsResponse(count=len(output_incidents), data=output_incidents)
 
 
 @router.get("/id/{incident_id}")
