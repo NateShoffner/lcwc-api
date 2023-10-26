@@ -47,7 +47,18 @@ class IncidentUpdater:
     @property
     def last_updated(self) -> datetime.datetime:
         return self.last_update
+    
+    def __log_incident(self, incident: Incident, tag: str = None):
+        """Logs an incident to the logger/console """
 
+        prefix = ''
+        if tag is not None:
+            prefix = f"{tag} "
+
+        self.logger.info(
+            f"{prefix}{incident.category} incident #{incident.number} at {incident.intersection} in {incident.municipality} for {incident.description}"
+        )
+    
     def __process_incidents(self, incidents: list[Incident]):
         """Processes the incidents by organizing them and their respective units"""
 
@@ -109,9 +120,14 @@ class IncidentUpdater:
             or len(resolved_incidents) > 0
             or len(known_incidents) > 0
         ):
-            self.logger.info(
+            self.logger.debug(
                 f"New: {len(new_incidents)} | Known: {len(known_incidents)} | Resolved: {len(resolved_incidents)}"
             )
+
+        for n in new_incidents:
+            self.__log_incident(n, "New")
+        for r in resolved_incidents:
+            self.__log_incident(r, "Resolved")
 
         total_assigned = 0
         total_unassigned = 0
@@ -123,8 +139,8 @@ class IncidentUpdater:
             total_unassigned = total_unassigned + len(units)
         for units in persisted_units.values():
             total_persisted = total_persisted + len(units)
-
-        self.logger.info(
+        
+        self.logger.debug(
             f"Units Assigned: {total_assigned} | Units Unassigned: {total_unassigned} | Units Persisted: {total_persisted}"
         )
         self.cached_incidents = {x.number: x for x in incidents}
@@ -142,7 +158,7 @@ class IncidentUpdater:
         async with aiohttp.ClientSession() as session:
             fetch_start = time.perf_counter()
             try:
-                live_incidents = await self.incident_client.get_incidents(session)
+                live_incidents = await self.incident_client.get_incidents(session, throw_on_error=True)
                 fetch_end = time.perf_counter()
                 self.logger.info(
                     f"Found {len(live_incidents)} live incidents in {fetch_end - fetch_start:0.2f} seconds via {self.parser_name}"
@@ -158,16 +174,16 @@ class IncidentUpdater:
 
     def update_units(self, units_dict: dict[int, list[Unit]], assigned: bool):
         if assigned:
-            print("Saving assigned units...")
+            self.logger.debug("Saving assigned units...")
             with self.db.atomic():
                 for incident_number, units in units_dict.items():
-                    print(f"Getting incident {incident_number}...")
+                    self.logger.debug(f"Getting incident {incident_number}...")
 
                     incident = IncidentModel.get(
                         IncidentModel.number == incident_number
                     )
 
-                    print(f"Saving units for incident {incident_number}...")
+                    self.logger.debug(f"Saving units for incident {incident_number}...")
 
                     for unit in units:
                         r = (
