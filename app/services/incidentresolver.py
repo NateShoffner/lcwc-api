@@ -22,37 +22,39 @@ class IncidentResolver:
 
     def resolve_hanging_incidents(self):
         now = datetime.datetime.utcnow()
-        then = now - self.resolution_threshold
-        self.logger.info(f"Pruning unresolved incidents older than {then}")
+        threshold = now - self.resolution_threshold
+
+        self.logger.info(f"Pruning unresolved incidents older than {threshold}")
 
         try:
-            prune_result = (
-                Incident.update(
-                    {
-                        Incident.resolved_at: datetime.datetime.utcnow(),
-                        Incident.automatically_resolved: True,
-                    }
-                )
-                .where(
-                    (Incident.resolved_at.is_null(True)) & (Incident.updated_at <= then)
-                )
-                .execute()
+             
+            incident_prune = Incident.update(
+                {
+                    Incident.resolved_at: datetime.datetime.utcnow(),
+                    Incident.automatically_resolved: True,
+                }
+            ).where(
+                (Incident.resolved_at.is_null(True)) & (Incident.updated_at <= threshold)
             )
 
-            self.logger.info(f"Pruned {prune_result} previously unresolved incident(s)")
+            print(incident_prune.sql())
 
-            prune_result = (
+            incident_prune_result = incident_prune.execute()
+
+            self.logger.info(f"Pruned {incident_prune_result} previously unresolved incident(s)")
+
+            unit_prune_result = (
                 Unit.update(
                     {
                         Unit.removed_at: datetime.datetime.utcnow(),
                         Unit.automatically_removed: True,
                     }
                 )
-                .where((Unit.removed_at.is_null(True)) & (Unit.last_seen <= then))
+                .where((Unit.removed_at.is_null(True)) & (Unit.last_seen <= threshold))
                 .execute()
             )
 
-            self.logger.info(f"Pruned {prune_result} previously unresolved unit(s)")
+            self.logger.info(f"Pruned {unit_prune_result} previously unresolved unit(s)")
 
         except Exception as e:
             self.logger.error(f"Failed to resolve unresolved incidents: {e}")

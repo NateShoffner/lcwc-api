@@ -6,6 +6,7 @@ from fastapi_cache import FastAPICache
 import redis
 import uvicorn
 from datetime import timedelta
+from app.database.models.feed_request import FeedRequest
 from app.middleware import ProcessTimeHeaderMiddleware
 from app.database.models import database_proxy
 from app.database.models.incident import Incident as IncidentModel
@@ -67,7 +68,7 @@ else:
 
 database_proxy.initialize(database)
 database.connect()
-database.create_tables([IncidentModel, UnitModel, AgencyModel])
+database.create_tables([IncidentModel, UnitModel, AgencyModel, FeedRequest])
 
 
 redis_client = redis.Redis(host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"))

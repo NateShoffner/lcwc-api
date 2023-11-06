@@ -4,6 +4,7 @@ import time
 import datetime
 import peewee
 import redis
+from app.database.models.feed_request import FeedRequest
 from app.database.models.unit import Unit as UnitModel
 from app.services.geocoder import IncidentGeocoder
 from lcwc.arcgis import ArcGISClient as Client, ArcGISIncident as Incident
@@ -155,6 +156,8 @@ class IncidentUpdater:
 
         live_incidents = []
 
+        success = False
+
         async with aiohttp.ClientSession() as session:
             fetch_start = time.perf_counter()
             try:
@@ -163,14 +166,30 @@ class IncidentUpdater:
                 self.logger.info(
                     f"Found {len(live_incidents)} live incidents in {fetch_end - fetch_start:0.2f} seconds via {self.parser_name}"
                 )
+                success = True
             except Exception as e:
                 self.logger.error(f"Error fetching incidents: {e}")
+                session.status
                 return
+
+        self.log_request(success, fetch_end - fetch_start, len(live_incidents))
 
         self.update_count += 1
 
         self.last_update = datetime.datetime.utcnow()
         self.__process_incidents(live_incidents)
+
+    def log_request(self, success: bool, execution_time: float, incidents: int, msg: str = None) -> FeedRequest:
+        self.logger.info(f"Updating incidents...")
+        fr = FeedRequest.create(
+            execution_time=execution_time,
+            success=success,
+            incidents=incidents,
+            parser=self.parser_name,
+            msg=msg,
+        )
+
+        return fr
 
     def update_units(self, units_dict: dict[int, list[Unit]], assigned: bool):
         if assigned:
