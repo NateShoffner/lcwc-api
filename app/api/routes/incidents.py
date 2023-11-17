@@ -57,7 +57,7 @@ async def incidents(
 ) -> IncidentsResponse:
     """Returns a list of active incidents"""
 
-    incidents = Incident.select().join(Unit).where(Incident.resolved_at.is_null())
+    incidents = Incident.select().where(Incident.resolved_at.is_null())
 
     if category:
         incidents = incidents.where(Incident.category == category)
@@ -76,18 +76,6 @@ async def incidents(
         output_incidents.append(IncidentOutput.from_db_model(incident))
 
     return IncidentsResponse(count=len(output_incidents), data=output_incidents)
-
-
-@router.get("/id/{incident_id}")
-@cache(expire=os.getenv("CACHE_INCIDENTS_EXPIRE"))
-async def incident(incident_id: str) -> IncidentResponse:
-    try:
-        incident = Incident.get(incident_id)
-    except Incident.DoesNotExist:
-        raise HTTPException(
-            status_code=404, detail=f"Incident with {incident_id=} does not exist."
-        )
-    return IncidentResponse(data=IncidentOutput.from_db_model(incident))
 
 
 @router.get("/related/{incident_id}")
