@@ -27,21 +27,23 @@ class IncidentResolver:
         self.logger.info(f"Pruning unresolved incidents older than {threshold}")
 
         try:
-             
             incident_prune = Incident.update(
                 {
                     Incident.resolved_at: datetime.datetime.utcnow(),
                     Incident.automatically_resolved: True,
                 }
             ).where(
-                (Incident.resolved_at.is_null(True)) & (Incident.updated_at <= threshold)
+                (Incident.resolved_at.is_null(True))
+                & (Incident.updated_at <= threshold)
             )
 
             print(incident_prune.sql())
 
             incident_prune_result = incident_prune.execute()
 
-            self.logger.info(f"Pruned {incident_prune_result} previously unresolved incident(s)")
+            self.logger.info(
+                f"Pruned {incident_prune_result} previously unresolved incident(s)"
+            )
 
             unit_prune_result = (
                 Unit.update(
@@ -54,7 +56,9 @@ class IncidentResolver:
                 .execute()
             )
 
-            self.logger.info(f"Pruned {unit_prune_result} previously unresolved unit(s)")
+            self.logger.info(
+                f"Pruned {unit_prune_result} previously unresolved unit(s)"
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to resolve unresolved incidents: {e}")

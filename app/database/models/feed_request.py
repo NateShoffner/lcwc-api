@@ -1,9 +1,8 @@
-
-
 import datetime
 import uuid
 from app.database.models import BaseModel
 from peewee import *
+
 
 class FeedRequest(BaseModel):
     id = UUIDField(primary_key=True, default=uuid.uuid4)

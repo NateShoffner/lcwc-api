@@ -20,13 +20,14 @@ units_router = APIRouter(
 
 logger = logging.getLogger(__name__)
 
+
 @units_router.get("/info/{name}")
 @cache(expire=os.getenv("CACHE_UNITS_EXPIRE"))
 async def unit_info(name: str):
-    """Gets unit information for the Unit via its shortname """
+    """Gets unit information for the Unit via its shortname"""
 
     from lcwc.utils.unitparser import UnitParser
+
     u = UnitParser.parse_unit(name, IncidentCategory.MEDICAL)
     u = jsonable_encoder(u)
     return u
-    

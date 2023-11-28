@@ -1,12 +1,9 @@
-import datetime
 import logging
 import os
 from lcwc.category import IncidentCategory
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from playhouse.shortcuts import model_to_dict
-from peewee import fn
-from pydantic import BaseModel
 from app.database.models.agency import Agency
 from fastapi_cache.decorator import cache
 
