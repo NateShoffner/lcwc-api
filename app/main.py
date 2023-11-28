@@ -12,7 +12,7 @@ from app.database.models import database_proxy
 from app.database.models.incident import Incident as IncidentModel
 from app.database.models.unit import Unit as UnitModel
 from app.database.models.agency import Agency as AgencyModel
-from app.api.routes import incident, incidents, root, agencies, meta
+from app.api.routes import incident, incidents, root, agencies, meta, units
 from app.services.agencyupdater import AgencyUpdater
 from app.services.geocoder import IncidentGeocoder
 from app.services.incidentresolver import IncidentResolver
@@ -101,6 +101,7 @@ app.include_router(meta.router, prefix="/api/v1")
 app.include_router(incidents.router, prefix="/api/v1")
 app.include_router(incident.router, prefix="/api/v1")
 app.include_router(agencies.agency_router, prefix="/api/v1")
+app.include_router(units.units_router, prefix="/api/v1")
 
 root_logger.info("Starting LCWC API...")
 root_logger.info("Database: %s", database.database)
