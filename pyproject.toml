@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "lcwc-api"
+version = "0.1.0"
+description = ""
+authors = ["Nate Shoffner <nate.shoffner@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+aiohttp = "3.8.3"
+fastapi = "0.80.0"
+fastapi-utils = "0.2.1"
+lcwc = "^0.10"
+peewee = "3.15.4"
+pymysql = "1.0.3"
+python-dotenv = "0.17.1"
+uvicorn = "0.18.3"
+toml = "^0.10.2"
+urllib3 = "^2.1.0"
+redis = "^5.0.1"
+googlemaps = "^4.10.0"
+fastapi-cache2 = "^0.2.1"
+aioredis = "^2.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
