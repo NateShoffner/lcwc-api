@@ -212,7 +212,7 @@ class IncidentUpdater:
                         r = (
                             UnitModel.insert(
                                 incident=incident,
-                                short_name=unit.name,
+                                short_name=unit.short_name,
                                 added_at=datetime.datetime.utcnow(),
                                 last_seen=datetime.datetime.utcnow(),
                             )
