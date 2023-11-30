@@ -120,3 +120,37 @@ async def incident(start: datetime.date, end: datetime.date):
     }
 
     return ResponseModel(data=data)
+
+
+@router.get("/search")
+@cache(expire=os.getenv("CACHE_INCIDENT_SEARCH_EXPIRE"))
+async def incident(
+    category: str = None,
+    description: str = None,
+    intersection: str = None,
+    municipality: str = None,
+    agency: str = None,
+) -> IncidentsResponse:
+    """Returns a list of incidents matching the query parameters"""
+
+    incidents = Incident.select()
+
+    if category:
+        incidents = incidents.where(Incident.category == category)
+    if description:
+        incidents = incidents.where(Incident.description.contains(description))
+    if intersection:
+        incidents = incidents.where(Incident.intersection.contains(intersection))
+    if municipality:
+        incidents = incidents.where(Incident.municipality.contains(municipality))
+    if agency:
+        incidents = incidents.where(Incident.agency.contains(agency))
+
+    incidents.order_by(Incident.dispatched_at.desc())
+
+    output_incidents = []
+
+    for incident in incidents:
+        output_incidents.append(IncidentOutput.from_db_model(incident))
+
+    return IncidentsResponse(count=len(output_incidents), data=output_incidents)
