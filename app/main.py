@@ -111,13 +111,7 @@ root_logger.info("lcwc version: %s", get_lcwc_version())
 geocoder = IncidentGeocoder(os.getenv("GOOGLE_MAPS_API_KEY"), redis_client)
 
 # incident updater
-
-updater = IncidentUpdater(
-    database,
-    redis_client,
-    geocoder,
-    strtobool(os.getenv("GEOCODING_ENABLED")),
-)
+updater = IncidentUpdater(database)
 
 
 @app.on_event("startup")

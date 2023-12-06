@@ -1,14 +1,12 @@
 import logging
+import os
 import aiohttp
 import time
 import datetime
 import peewee
-import redis
 from app.database.models.feed_request import FeedRequest
 from app.database.models.unit import Unit as UnitModel
-from app.services.geocoder import IncidentGeocoder
 from lcwc.arcgis import ArcGISClient as Client, ArcGISIncident as Incident
-from lcwc.unit import Unit
 from app.utils.info import get_lcwc_dist
 from app.database.models.incident import Incident as IncidentModel
 
@@ -16,38 +14,19 @@ from app.database.models.incident import Incident as IncidentModel
 
 
 class IncidentUpdater:
-    def __init__(
-        self,
-        db: peewee.Database,
-        redis: redis.Redis,
-        geocoder: IncidentGeocoder,
-        use_geocoder: bool = False,
-    ):
+    def __init__(self, db: peewee.Database):
         """Initializes the incident updater
 
         Args:
             db (peewee.Database): The database connection
-            redis (redis.Redis): The redis connection
-            geocoder (IncidentGeocoder): The geocoder to use
-            use_geocoder (bool, optional): Whether or not to use the geocoder. Defaults to False.
         """
 
         self.db = db
-        self.redis = redis
-        self.geocoder = geocoder
-        self.use_geocoder = use_geocoder
         self.incident_client = Client()
         self.cached_incidents = {}
-        self.last_update = None
         self.logger = logging.getLogger(__name__)
 
         self.parser_name = f"{self.incident_client.name} v{get_lcwc_dist().version}"
-
-        self.update_count = 0
-
-    @property
-    def last_updated(self) -> datetime.datetime:
-        return self.last_update
 
     def __log_incident(self, incident: Incident, tag: str = None):
         """Logs an incident to the logger/console"""
@@ -60,192 +39,14 @@ class IncidentUpdater:
             f"{prefix}{incident.category} incident #{incident.number} at {incident.intersection} in {incident.municipality} for {incident.description}"
         )
 
-    def __process_incidents(self, incidents: list[Incident]):
-        """Processes the incidents by organizing them and their respective units"""
-
-        active_ids = [x.number for x in incidents]
-
-        # organize incidents into new, known, and resolved when compared to the cached incidents
-        resolved_incidents = [
-            x for x in self.cached_incidents.values() if x.number not in active_ids
-        ]
-
-        known_incidents = [x for x in incidents if x.number in self.cached_incidents]
-        new_incidents = [x for x in incidents if x.number not in self.cached_incidents]
-
-        # track units that have been assigned and unassigned, keyed by incident number
-        newly_assigned_units = {}
-        unassigned_units = {}
-        persisted_units = {}
-
-        # check all the known incidents and see what units have been assigned and unassigned
-        for incident in known_incidents:
-            cached_incident = self.cached_incidents[incident.number]
-
-            # check for newly assigned units
-            for unit in incident.units:
-                if unit not in cached_incident.units:
-                    newly_assigned_units.setdefault(incident.number, []).append(unit)
-                    self.logger.info(
-                        f"Unit {unit} assigned to incident {incident.number}"
-                    )
-                else:  # unit has persisted
-                    persisted_units.setdefault(incident.number, []).append(unit)
-
-            # check for unassigned units
-            for unit in cached_incident.units:
-                if unit not in incident.units:
-                    unassigned_units.setdefault(incident.number, []).append(unit)
-                    self.logger.info(
-                        f"Unit {unit} unassigned from incident {incident.number}"
-                    )
-
-        # custom geocoding
-        if self.use_geocoder:
-            self.logger.info("Geocoding new incidents...")
-            geocode_count = 0
-            geocode_start = time.perf_counter()
-            for incident in new_incidents:
-                coords = self.geocoder.get_coordinates(incident)
-                if coords is not None:
-                    # TODO set this properly
-                    incident._coordinates = coords
-                    geocode_count += 1
-            geocode_end = time.perf_counter()
-            self.logger.info(
-                f"Geocoded {geocode_count} incidents in {geocode_end - geocode_start:0.2f} seconds"
-            )
-
-        if (
-            len(new_incidents) > 0
-            or len(resolved_incidents) > 0
-            or len(known_incidents) > 0
-        ):
-            self.logger.debug(
-                f"New: {len(new_incidents)} | Known: {len(known_incidents)} | Resolved: {len(resolved_incidents)}"
-            )
-
-        for n in new_incidents:
-            self.__log_incident(n, "New")
-        for r in resolved_incidents:
-            self.__log_incident(r, "Resolved")
-
-        total_assigned = 0
-        total_unassigned = 0
-        total_persisted = 0
-
-        for units in newly_assigned_units.values():
-            total_assigned = total_assigned + len(units)
-        for units in unassigned_units.values():
-            total_unassigned = total_unassigned + len(units)
-        for units in persisted_units.values():
-            total_persisted = total_persisted + len(units)
-
-        self.logger.debug(
-            f"Units Assigned: {total_assigned} | Units Unassigned: {total_unassigned} | Units Persisted: {total_persisted}"
-        )
-        self.cached_incidents = {x.number: x for x in incidents}
-        self.save_incidents(incidents, resolved_incidents)
-
-        self.update_units(newly_assigned_units, True)
-        self.update_units(persisted_units, True)
-        self.update_units(unassigned_units, False)
-
-    async def update_incidents(self) -> None:
-        self.logger.info("Updating incidents...")
-
-        live_incidents = []
-
-        success = False
-
-        async with aiohttp.ClientSession() as session:
-            fetch_start = time.perf_counter()
-            try:
-                live_incidents = await self.incident_client.get_incidents(
-                    session, throw_on_error=True
-                )
-                fetch_end = time.perf_counter()
-                self.logger.info(
-                    f"Found {len(live_incidents)} live incidents in {fetch_end - fetch_start:0.2f} seconds via {self.parser_name}"
-                )
-                success = True
-            except Exception as e:
-                self.logger.error(f"Error fetching incidents: {e}")
-                session.status
-                return
-
-        self.log_request(success, fetch_end - fetch_start, len(live_incidents))
-
-        self.update_count += 1
-
-        self.last_update = datetime.datetime.utcnow()
-        self.__process_incidents(live_incidents)
-
-    def log_request(
-        self, success: bool, execution_time: float, incidents: int, msg: str = None
-    ) -> FeedRequest:
-        self.logger.info(f"Updating incidents...")
-        fr = FeedRequest.create(
-            execution_time=execution_time,
-            success=success,
-            incidents=incidents,
-            parser=self.parser_name,
-            msg=msg,
-        )
-
-        return fr
-
-    def update_units(self, units_dict: dict[int, list[Unit]], assigned: bool):
-        if assigned:
-            self.logger.debug("Saving assigned units...")
-            with self.db.atomic():
-                for incident_number, units in units_dict.items():
-                    self.logger.debug(f"Getting incident {incident_number}...")
-
-                    incident = IncidentModel.get(
-                        IncidentModel.number == incident_number
-                    )
-
-                    self.logger.debug(f"Saving units for incident {incident_number}...")
-
-                    for unit in units:
-                        r = (
-                            UnitModel.insert(
-                                incident=incident,
-                                short_name=unit.short_name,
-                                added_at=datetime.datetime.utcnow(),
-                                last_seen=datetime.datetime.utcnow(),
-                            )
-                            .on_conflict(
-                                conflict_target=[
-                                    UnitModel.incident,
-                                    UnitModel.short_name,
-                                ],
-                                update={
-                                    UnitModel.last_seen: datetime.datetime.utcnow(),
-                                },
-                            )
-                            .execute()
-                        )
-        else:
-            with self.db.atomic():
-                for incident_number, units in units_dict.items():
-                    incident = IncidentModel.get(
-                        IncidentModel.number == incident_number
-                    )
-                    for unit in units:
-                        query = UnitModel.update(
-                            removed_at=datetime.datetime.utcnow()
-                        ).where(UnitModel.name == unit)
-                        query.execute()
-
-    def save_incidents(
-        self, incidents: list[Incident], resolved_incidents: list[Incident]
-    ):
+    def process_live_incidents(self, incidents: list[Incident]):
+        """Processes live incidents and compares them against the database, updating when needed"""
         with self.db.atomic():
+            # TODO get modified incidents and log out the changes
+            
             for incident in incidents:
                 try:
-                    query = IncidentModel.insert(
+                    incident_query = IncidentModel.insert(
                         {
                             IncidentModel.category: incident.category,
                             IncidentModel.description: incident.description,
@@ -269,27 +70,128 @@ class IncidentUpdater:
                             IncidentModel.municipality: incident.municipality,
                             IncidentModel.priority: incident.priority,
                             IncidentModel.updated_at: datetime.datetime.utcnow(),
+                            # TODO allow incidents to be re-activated until upstream issue is resolved
+                            # involving gaps in incident resolution
+                            IncidentModel.resolved_at: None,
+                            IncidentModel.automatically_resolved: False,
                         },
                     )
 
-                    r = query.execute()
-                    self.logger.debug(f"Inserted incident {incident.number}")
+                    res = incident_query.execute()
                 except Exception as e:
-                    self.logger.error(query.sql())
-                    self.logger.error(e)
+                    self.logger.error(f"Error adding incident to db: {e}")
 
-        with self.db.atomic():
-            self.logger.info(
-                f"Marking {len(resolved_incidents)} incidents as resolved..."
-            )
-            for incident in resolved_incidents:
+                db_incident = IncidentModel.get(IncidentModel.number == incident.number)
+
                 try:
-                    query = IncidentModel.update(
-                        resolved_at=datetime.datetime.utcnow()
-                    ).where(IncidentModel.number == incident.number)
-                    r = query.execute()
-                    self.logger.debug(f"Resolved incident {incident.number} ({r})")
+                    for unit in incident.units:
+                        r = (
+                            UnitModel.insert(
+                                incident=db_incident,
+                                short_name=unit.full_name,
+                                added_at=datetime.datetime.utcnow(),
+                                last_seen=datetime.datetime.utcnow(),
+                            )
+                            .on_conflict(
+                                conflict_target=[
+                                    UnitModel.incident,
+                                    UnitModel.short_name,
+                                ],
+                                update={
+                                    UnitModel.last_seen: datetime.datetime.utcnow(),
+                                },
+                            )
+                            .execute()
+                        )
+
                 except Exception as e:
-                    self.logger.error(
-                        f"Error resolving incident {incident.number}: {e}"
+                    self.logger.error(f"Error adding unit to db: {e}")
+
+            try:
+                # select all recently unresolved incidents
+                active_numbers = (
+                    IncidentModel.select(IncidentModel.number)
+                    .where(
+                        IncidentModel.resolved_at.is_null(),
+                        IncidentModel.updated_at
+                        < datetime.datetime.utcnow()
+                        - datetime.timedelta(
+                            minutes=int(os.getenv("ACTIVE_INCIDENT_RESOLVER_MIN"))
+                        ),
+                        IncidentModel.updated_at
+                        > datetime.datetime.utcnow()
+                        - datetime.timedelta(
+                            minutes=int(os.getenv("ACTIVE_INCIDENT_RESOLVER_MAX"))
+                        ),
                     )
+                    .dicts()
+                )
+
+                self.logger.info(
+                    f"Found {len(active_numbers)} incidents to resolve that are older than {os.getenv('ACTIVE_INCIDENT_RESOLVER_MIN')} minutes but not older than {os.getenv('ACTIVE_INCIDENT_RESOLVER_MAX')} minutes"
+                )
+
+                # mark them as resolved
+                resolved = (
+                    IncidentModel.update(
+                        resolved_at=datetime.datetime.utcnow(),
+                        automatically_resolved=True,
+                    )
+                    .where(IncidentModel.number.in_(active_numbers))
+                    .execute()
+                )
+
+                self.logger.info(f"Resolved {resolved} incidents")
+
+            except Exception as e:
+                self.logger.error(f"Error resolving incidents: {e}")
+
+    async def get_incidents(self) -> list[Incident]:
+        """Fetches the incidents from the LCWC feed"""
+        live_incidents = []
+        success = False
+
+        async with aiohttp.ClientSession() as session:
+            fetch_start = time.perf_counter()
+            try:
+                live_incidents = await self.incident_client.get_incidents(
+                    session, throw_on_error=True
+                )
+                fetch_end = time.perf_counter()
+                self.logger.info(
+                    f"Found {len(live_incidents)} live incidents in {fetch_end - fetch_start:0.2f} seconds via {self.parser_name}"
+                )
+                success = True
+            except Exception as e:
+                self.logger.error(f"Error fetching incidents: {e}")
+                return
+
+        self.log_request(success, fetch_end - fetch_start, len(live_incidents))
+
+        return live_incidents
+
+    async def update_incidents(self) -> None:
+        self.logger.info("Updating incidents...")
+
+        live_incidents = await self.get_incidents()
+        if live_incidents is None:
+            self.logger.error(
+                "All sequential attempts to get incidents failed, skipping..."
+            )
+            return
+
+        self.process_live_incidents(live_incidents)
+
+    def log_request(
+        self, success: bool, execution_time: float, incidents: int, msg: str = None
+    ) -> FeedRequest:
+        """Logs a feed request to the database"""
+        fr = FeedRequest.create(
+            execution_time=execution_time,
+            success=success,
+            incidents=incidents,
+            parser=self.parser_name,
+            msg=msg,
+        )
+
+        return fr
