@@ -4,6 +4,7 @@ from lcwc.category import IncidentCategory
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from playhouse.shortcuts import model_to_dict
+from app.api.models.agency import AgenciesResponse, Agency as AgencyOutput
 from app.database.models.agency import Agency
 from fastapi_cache.decorator import cache
 
@@ -28,7 +29,7 @@ async def search_agencies(
     state: Optional[str] = None,
     zip_code: Optional[str] = None,
     phone: Optional[str] = None,
-):
+) -> AgenciesResponse:
     """Search for agencies"""
 
     agencies = []
@@ -52,7 +53,10 @@ async def search_agencies(
     if phone:
         agencies = Agency.select().where(Agency.phone == phone)
 
-    return [model_to_dict(agency) for agency in agencies]
+    output_agencies = []
+    for incident in agencies:
+        output_agencies.append(AgencyOutput.from_db_model(incident))
+    return AgenciesResponse(count=len(output_agencies), data=output_agencies)
 
 
 @agency_router.get("/stats")
@@ -81,7 +85,7 @@ async def agency_stats():
 
 @agency_router.get("/{category}")
 @cache(expire=os.getenv("CACHE_AGENCIES_EXPIRE"))
-async def agencies(category: IncidentCategory):
+async def agencies(category: IncidentCategory) -> AgenciesResponse:
     """Get all agencies for a given category"""
 
     agencies = []
@@ -89,7 +93,11 @@ async def agencies(category: IncidentCategory):
         agencies = Agency.select().where(Agency.category == category)
     except Agency.DoesNotExist:
         raise HTTPException(status_code=404, detail="Agencies not found")
-    return [model_to_dict(agency) for agency in agencies]
+
+    output_agencies = []
+    for incident in agencies:
+        output_agencies.append(AgencyOutput.from_db_model(incident))
+    return AgenciesResponse(count=len(output_agencies), data=output_agencies)
 
 
 @agency_router.get("/{category}/{id}")
