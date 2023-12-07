@@ -1,8 +1,8 @@
 # LCWC API
 
-Third-party REST API for the [LCWC](https://www.lcwc911.us/live-incident-list) to faciliate the need for one.
+Third-party REST API for the [LCWC](https://www.lcwc911.us/live-incident-list) to facilitate the need for one.
 
-Utilizes [FastAPI](https://fastapi.tiangolo.com/), [uvicorn](https://www.uvicorn.org/) for the web server, [peewee](https://docs.peewee-orm.com/en/latest/) as an ORM and [lcwc](https://pypi.org/project/lcwc/) for the data fetching.
+Utilizes [FastAPI](https://fastapi.tiangolo.com/), [uvicorn](https://www.uvicorn.org/) for the web server, [peewee](https://docs.peewee-orm.com/en/latest/) as an ORM and [python-lcwc](https://github.com/NateShoffner/python-lcwc) for the data fetching.
 
 **This is a work in progress and is not yet ready for production use.**
 
