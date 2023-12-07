@@ -37,8 +37,6 @@ class IncidentResolver:
                 & (Incident.updated_at <= threshold)
             )
 
-            print(incident_prune.sql())
-
             incident_prune_result = incident_prune.execute()
 
             self.logger.info(
