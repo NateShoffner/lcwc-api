@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.api.models.incident import (
     Incident as IncidentOutput,
-    IncidentResponse,
     IncidentStats,
     IncidentsResponse,
 )
@@ -78,14 +77,14 @@ async def incidents(
     return IncidentsResponse(count=len(output_incidents), data=output_incidents)
 
 
-@router.get("/related/{incident_id}")
+@router.get("/related/{incident_number}")
 @cache(expire=os.getenv("CACHE_INCIDENTS_EXPIRE"))
-async def related(incident_id: str, delta_minutes: int = 60):
+async def related(incident_number: str, delta_minutes: int = 60):
     try:
-        incident = Incident.select().where(Incident.id == incident_id).limit(1).get()
+        incident = Incident.get(Incident.number == incident_number)
     except Incident.DoesNotExist:
         raise HTTPException(
-            status_code=404, detail=f"Incident with {incident_id=} does not exist."
+            status_code=404, detail=f"Incident with {incident_number=} does not exist."
         )
 
     related = Incident.select().where(
