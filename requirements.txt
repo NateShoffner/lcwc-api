@@ -3,7 +3,7 @@ fastapi==0.80.0
 fastapi_utils==0.2.1
 lcwc
 peewee==3.15.4
-pymysql==1.0.3
+pymysql==1.1.1
 python-dotenv==0.17.1
 uvicorn==0.18.3
 toml
